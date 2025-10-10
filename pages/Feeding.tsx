@@ -170,9 +170,9 @@ const FeedingPage: React.FC<FeedingPageProps> = ({
     if (globalBattalionFilter === 'الكل') return {};
     const filtered = feedingSchedules.filter(s => s.battalion === globalBattalionFilter);
     
-    // FIX: The initial value for reduce was `{}`, causing TypeScript to infer a narrow type.
-    // Typing the accumulator `acc` correctly resolves this, ensuring `grouped` has the correct type
-    // for subsequent operations like `.sort()` and `.map()`.
+    // FIX: Correctly typed the initial value for the reduce accumulator. An untyped `{}`
+    // caused the resulting `grouped` object to have an incorrect type, leading to
+    // follow-up errors on `.sort()` and `.map()`.
     const grouped = filtered.reduce((acc, schedule) => {
         const category = schedule.category || 'غير مصنف';
         if (!acc[category]) {

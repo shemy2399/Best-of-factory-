@@ -107,7 +107,7 @@ const Dashboard: React.FC<DashboardProps> = ({ horses, medications, clinicLog, g
                       <li key={index} className="flex justify-between items-center text-sm">
                         <span className="text-gray-200">{med.name}</span>
                         <div className="flex items-center gap-3">
-                          <span className="font-mono text-gray-400">{med.expiryDate}</span>
+                          <span className="text-gray-400">{med.expiryDate}</span>
                           {med.status === 'expired' ? (
                             <span className="px-2 py-0.5 text-xs font-medium text-red-300 bg-red-500/20 rounded-full">منتهي الصلاحية</span>
                           ) : (

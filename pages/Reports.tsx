@@ -42,8 +42,6 @@ const ReportsPage: React.FC<ReportsPageProps> = ({ clinicLog, horses, medication
 
   const casesByBattalion = useMemo(() => {
       const horseMap = new Map(horses.map(h => [h.id, h]));
-      // FIX: The initial value of the reduce function was an empty object `{}`, which TypeScript infers as type `{}`,
-      // preventing new properties from being added. Typing the accumulator `acc` correctly solves this.
       return filteredClinicLog.reduce((acc, entry) => {
           const horse = horseMap.get(entry.horseId);
           if (horse) {
@@ -51,6 +49,8 @@ const ReportsPage: React.FC<ReportsPageProps> = ({ clinicLog, horses, medication
               acc[battalion] = (acc[battalion] || 0) + 1;
           }
           return acc;
+      // FIX: The initial value for `reduce` was an empty object `{}`, which TypeScript infers as a type
+      // that cannot have properties added to it. Casting it to `Record<string, number>` solves the issue.
       }, {} as Record<string, number>);
   }, [filteredClinicLog, horses]);
 

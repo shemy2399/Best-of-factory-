@@ -1,8 +1,9 @@
 import React, { useMemo } from 'react';
 import { Horse, MedicalRecordEntry, Vaccination } from '../types';
-import { RemindersIcon } from '../components/icons';
+import { RemindersIcon, CheckIcon } from '../components/icons';
 
 interface Reminder {
+    id: string; // The ID of the source document (clinicLog or vaccination)
     type: 'clinic' | 'vaccination' | 'deworming';
     horseId: string;
     horseName: string;
@@ -19,9 +20,10 @@ interface RemindersPageProps {
   horses: Horse[];
   vaccinations: Vaccination[];
   globalBattalionFilter: Horse['battalion'] | 'الكل';
+  onCompleteReminder: (reminder: Reminder) => void;
 }
 
-const RemindersPage: React.FC<RemindersPageProps> = ({ clinicLog, horses, vaccinations, globalBattalionFilter }) => {
+const RemindersPage: React.FC<RemindersPageProps> = ({ clinicLog, horses, vaccinations, globalBattalionFilter, onCompleteReminder }) => {
     
     const allReminders = useMemo((): Reminder[] => {
         const horseMap = new Map<string, Horse>(horses.map(h => [h.id, h]));
@@ -33,6 +35,7 @@ const RemindersPage: React.FC<RemindersPageProps> = ({ clinicLog, horses, vaccin
                 const horse = horseMap.get(record.horseId);
                 if (horse) {
                     reminders.push({
+                        id: record.id,
                         type: 'clinic',
                         horseId: horse.id,
                         horseName: horse.name,
@@ -53,6 +56,7 @@ const RemindersPage: React.FC<RemindersPageProps> = ({ clinicLog, horses, vaccin
                 const horse = horseMap.get(vacc.horseId);
                 if (horse) {
                     reminders.push({
+                        id: vacc.id,
                         type: vacc.type,
                         horseId: horse.id,
                         horseName: horse.name,
@@ -82,7 +86,7 @@ const RemindersPage: React.FC<RemindersPageProps> = ({ clinicLog, horses, vaccin
     const todayReminders = allReminders.filter(r => new Date(r.dueDate).getTime() === today.getTime());
     const upcomingReminders = allReminders.filter(r => new Date(r.dueDate) > today);
 
-    const ReminderCard: React.FC<{ reminder: Reminder, category: 'overdue' | 'today' | 'upcoming' }> = ({ reminder, category }) => {
+    const ReminderCard: React.FC<{ reminder: Reminder; category: 'overdue' | 'today' | 'upcoming'; onComplete: (reminder: Reminder) => void; }> = ({ reminder, category, onComplete }) => {
         let borderColor = 'border-gray-600';
         if (category === 'overdue') borderColor = 'border-red-500';
         if (category === 'today') borderColor = 'border-amber-500';
@@ -103,32 +107,44 @@ const RemindersPage: React.FC<RemindersPageProps> = ({ clinicLog, horses, vaccin
         }
 
         return (
-            <div className={`bg-gray-800 p-4 rounded-lg border-l-4 ${borderColor} shadow-md`}>
-                <div className="flex justify-between items-start">
-                    <div>
-                        <p className="font-bold text-lg text-white">{reminder.horseName} ({reminder.horseNumber})</p>
-                        <p className="text-sm text-gray-400">{reminder.battalion}</p>
+            <div className={`bg-gray-800 p-4 rounded-lg border-l-4 ${borderColor} shadow-md flex flex-col`}>
+                <div className="flex-grow">
+                    <div className="flex justify-between items-start">
+                        <div>
+                            <p className="font-bold text-lg text-white">{reminder.horseName} ({reminder.horseNumber})</p>
+                            <p className="text-sm text-gray-400">{reminder.battalion}</p>
+                        </div>
+                        <div className="text-left">
+                             <p className="font-semibold text-gray-200">{reminder.dueDate}</p>
+                             <p className="text-xs text-gray-500">{getDueDateText()}</p>
+                        </div>
                     </div>
-                    <div className="text-left">
-                         <p className="font-semibold text-gray-200">{reminder.dueDate}</p>
-                         <p className="text-xs text-gray-500">{getDueDateText()}</p>
+                    <div className="mt-4 pt-3 border-t border-gray-700">
+                        <p className="text-sm font-semibold text-gray-300">
+                           {reminder.type === 'clinic' ? 'سبب المتابعة:' : 'تفاصيل:'}
+                        </p>
+                        <p className="text-sm text-gray-200 mt-1">{reminder.details}</p>
+
+                        {reminder.originalDate && (
+                            <p className="text-sm text-gray-500 mt-1">
+                               {getOriginalDateText()}
+                            </p>
+                        )}
+                        
+                        {reminder.notes && (
+                             <p className="text-sm text-amber-300 mt-2 bg-amber-500/10 p-2 rounded">{reminder.notes}</p>
+                        )}
                     </div>
                 </div>
-                <div className="mt-4 pt-3 border-t border-gray-700">
-                    <p className="text-sm font-semibold text-gray-300">
-                       {reminder.type === 'clinic' ? 'سبب المتابعة:' : 'تفاصيل:'}
-                    </p>
-                    <p className="text-sm text-gray-200 mt-1">{reminder.details}</p>
-
-                    {reminder.originalDate && (
-                        <p className="text-sm text-gray-500 mt-1">
-                           {getOriginalDateText()}
-                        </p>
-                    )}
-                    
-                    {reminder.notes && (
-                         <p className="text-sm text-amber-300 mt-2 bg-amber-500/10 p-2 rounded">{reminder.notes}</p>
-                    )}
+                 <div className="mt-4 pt-3 border-t border-gray-700 flex justify-end">
+                    <button
+                        onClick={() => onComplete(reminder)}
+                        aria-label={`Mark reminder for ${reminder.horseName} as done`}
+                        className="flex items-center gap-2 px-3 py-1.5 text-sm font-semibold text-green-200 bg-green-500/20 rounded-md hover:bg-green-500/40 transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-gray-800 focus:ring-green-500"
+                    >
+                        <CheckIcon className="w-4 h-4" />
+                        تم التنفيذ
+                    </button>
                 </div>
             </div>
         );
@@ -158,7 +174,7 @@ const RemindersPage: React.FC<RemindersPageProps> = ({ clinicLog, horses, vaccin
                     <section>
                         <h2 className="text-2xl font-bold text-red-400 mb-4">متأخر ({overdueReminders.length})</h2>
                         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                            {overdueReminders.map(r => <ReminderCard key={`${r.horseId}-${r.dueDate}-${r.details}`} reminder={r} category="overdue"/>)}
+                            {overdueReminders.map(r => <ReminderCard key={r.id} reminder={r} category="overdue" onComplete={onCompleteReminder} />)}
                         </div>
                     </section>
                 )}
@@ -166,7 +182,7 @@ const RemindersPage: React.FC<RemindersPageProps> = ({ clinicLog, horses, vaccin
                     <section>
                         <h2 className="text-2xl font-bold text-amber-400 mb-4">اليوم ({todayReminders.length})</h2>
                         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                            {todayReminders.map(r => <ReminderCard key={`${r.horseId}-${r.dueDate}-${r.details}`} reminder={r} category="today"/>)}
+                            {todayReminders.map(r => <ReminderCard key={r.id} reminder={r} category="today" onComplete={onCompleteReminder} />)}
                         </div>
                     </section>
                 )}
@@ -174,7 +190,7 @@ const RemindersPage: React.FC<RemindersPageProps> = ({ clinicLog, horses, vaccin
                     <section>
                         <h2 className="text-2xl font-bold text-gray-300 mb-4">قادم ({upcomingReminders.length})</h2>
                         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                            {upcomingReminders.map(r => <ReminderCard key={`${r.horseId}-${r.dueDate}-${r.details}`} reminder={r} category="upcoming"/>)}
+                            {upcomingReminders.map(r => <ReminderCard key={r.id} reminder={r} category="upcoming" onComplete={onCompleteReminder} />)}
                         </div>
                     </section>
                 )}

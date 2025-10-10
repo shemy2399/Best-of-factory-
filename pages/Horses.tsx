@@ -1,6 +1,7 @@
 import React, { useState, useMemo } from 'react';
 import { Horse, MedicalRecordEntry, Vaccination } from '../types';
 import { PlusIcon, EyeIcon, PencilIcon, TrashIcon, XMarkIcon } from '../components/icons';
+import DateInput from '../components/DateInput';
 
 interface HorsesPageProps {
   horses: Horse[];
@@ -58,7 +59,10 @@ const AddHorseModal: React.FC<{ onClose: () => void, onAddHorse: (horse: Omit<Ho
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <input name="number" value={formData.number} onChange={handleChange} placeholder="الرقم" className="p-3 bg-gray-700 border border-gray-600 rounded-lg text-gray-200 focus:ring-amber-500 focus:border-amber-500" required />
                         <input name="name" value={formData.name} onChange={handleChange} placeholder="الاسم" className="p-3 bg-gray-700 border border-gray-600 rounded-lg text-gray-200 focus:ring-amber-500 focus:border-amber-500" required />
-                        <input name="dateOfBirth" type="date" value={formData.dateOfBirth} onChange={handleChange} placeholder="تاريخ الميلاد" className="p-3 bg-gray-700 border border-gray-600 rounded-lg text-gray-200 focus:ring-amber-500 focus:border-amber-500" required />
+                        <div>
+                            <label className="block mb-2 text-sm font-medium text-gray-300">تاريخ الميلاد</label>
+                            <DateInput value={formData.dateOfBirth} onChange={value => handleChange({target: {name: 'dateOfBirth', value}} as any)} required />
+                        </div>
                         <input name="breed" value={formData.breed} onChange={handleChange} placeholder="النوع / السلالة" className="p-3 bg-gray-700 border border-gray-600 rounded-lg text-gray-200 focus:ring-amber-500 focus:border-amber-500" required />
                         <input name="color" value={formData.color} onChange={handleChange} placeholder="اللون" className="p-3 bg-gray-700 border border-gray-600 rounded-lg text-gray-200 focus:ring-amber-500 focus:border-amber-500" required />
                         <select name="battalion" value={formData.battalion} onChange={handleChange} className="p-3 bg-gray-700 border border-gray-600 rounded-lg text-gray-200 focus:ring-amber-500 focus:border-amber-500" required>
@@ -82,22 +86,56 @@ const EditHorseModal: React.FC<{
   onClose: () => void;
   onEditHorse: (horse: Horse) => void;
 }> = ({ horse, onClose, onEditHorse }) => {
-    const [formData, setFormData] = useState(horse);
+    const [formData, setFormData] = useState({
+        ...horse,
+        pregnancy: horse.pregnancy || { conceptionDate: '', expectedDueDate: '', notes: '' }
+    });
+    const [isPregnant, setIsPregnant] = useState(!!horse.pregnancy);
 
-    const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
+    const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
         const { name, value } = e.target;
-        setFormData(prev => ({ ...prev, [name]: value as any }));
+        if (name.startsWith('pregnancy.')) {
+            const field = name.split('.')[1];
+            setFormData(prev => ({ 
+                ...prev, 
+                pregnancy: { ...prev.pregnancy!, [field]: value } 
+            }));
+        } else {
+            setFormData(prev => ({ ...prev, [name]: value as any }));
+        }
     };
+    
+    const handlePregnancyCheck = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const checked = e.target.checked;
+        setIsPregnant(checked);
+        if (!checked) {
+            setFormData(prev => ({ 
+                ...prev, 
+                pregnancy: { conceptionDate: '', expectedDueDate: '', notes: '' }
+            }));
+        }
+    }
 
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
-        onEditHorse(formData);
+        
+        let finalData: Partial<Horse> = { ...formData };
+        if (isPregnant) {
+            if (!formData.pregnancy?.conceptionDate || !formData.pregnancy?.expectedDueDate) {
+                alert('يرجى إدخال تاريخ التلقيح وتاريخ الولادة المتوقع.');
+                return;
+            }
+        } else {
+            delete finalData.pregnancy;
+        }
+        
+        onEditHorse(finalData as Horse);
         onClose();
     };
 
     return (
         <div className="fixed inset-0 bg-black bg-opacity-75 flex justify-center items-center z-50">
-            <div className="bg-gray-800 rounded-xl shadow-2xl p-8 w-full max-w-lg border border-gray-700">
+            <div className="bg-gray-800 rounded-xl shadow-2xl p-8 w-full max-w-2xl max-h-[90vh] overflow-y-auto border border-gray-700">
                 <div className="flex justify-between items-center mb-6">
                     <h2 className="text-2xl font-bold text-white">تعديل بيانات الحصان</h2>
                     <button onClick={onClose} className="text-gray-400 hover:text-gray-200">
@@ -108,7 +146,10 @@ const EditHorseModal: React.FC<{
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <input name="number" value={formData.number} onChange={handleChange} placeholder="الرقم" className="p-3 bg-gray-700 border border-gray-600 rounded-lg text-gray-200 focus:ring-amber-500 focus:border-amber-500" required />
                         <input name="name" value={formData.name} onChange={handleChange} placeholder="الاسم" className="p-3 bg-gray-700 border border-gray-600 rounded-lg text-gray-200 focus:ring-amber-500 focus:border-amber-500" required />
-                        <input name="dateOfBirth" type="date" value={formData.dateOfBirth} onChange={handleChange} placeholder="تاريخ الميلاد" className="p-3 bg-gray-700 border border-gray-600 rounded-lg text-gray-200 focus:ring-amber-500 focus:border-amber-500" required />
+                        <div>
+                            <label className="block mb-2 text-sm font-medium text-gray-300">تاريخ الميلاد</label>
+                            <DateInput value={formData.dateOfBirth} onChange={value => handleChange({ target: { name: 'dateOfBirth', value } } as any)} required />
+                        </div>
                         <input name="breed" value={formData.breed} onChange={handleChange} placeholder="النوع / السلالة" className="p-3 bg-gray-700 border border-gray-600 rounded-lg text-gray-200 focus:ring-amber-500 focus:border-amber-500" required />
                         <input name="color" value={formData.color} onChange={handleChange} placeholder="اللون" className="p-3 bg-gray-700 border border-gray-600 rounded-lg text-gray-200 focus:ring-amber-500 focus:border-amber-500" required />
                         <select name="battalion" value={formData.battalion} onChange={handleChange} className="p-3 bg-gray-700 border border-gray-600 rounded-lg text-gray-200 focus:ring-amber-500 focus:border-amber-500" required>
@@ -123,6 +164,40 @@ const EditHorseModal: React.FC<{
                             <option value="sick">مريض</option>
                         </select>
                     </div>
+
+                    <div className="border-t border-gray-700 pt-4 mt-4">
+                        <h3 className="text-xl font-bold text-amber-400 mb-4">بيانات الحمل</h3>
+                        <div className="flex items-center mb-4">
+                           <input 
+                              id="isPregnant" 
+                              type="checkbox" 
+                              checked={isPregnant} 
+                              onChange={handlePregnancyCheck}
+                              className="w-5 h-5 text-amber-500 bg-gray-600 border-gray-500 rounded focus:ring-amber-500"
+                           />
+                           <label htmlFor="isPregnant" className="mr-3 text-lg font-medium text-gray-100">عشار (حامل)</label>
+                        </div>
+
+                        {isPregnant && (
+                            <div className="space-y-4 p-4 bg-gray-900/50 rounded-lg">
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                    <div>
+                                        <label className="block mb-2 text-sm font-medium text-gray-300">تاريخ التلقيح</label>
+                                        <DateInput value={formData.pregnancy?.conceptionDate || ''} onChange={value => handleChange({ target: { name: 'pregnancy.conceptionDate', value } } as any)} required />
+                                    </div>
+                                    <div>
+                                        <label className="block mb-2 text-sm font-medium text-gray-300">تاريخ الولادة المتوقع</label>
+                                        <DateInput value={formData.pregnancy?.expectedDueDate || ''} onChange={value => handleChange({ target: { name: 'pregnancy.expectedDueDate', value } } as any)} required />
+                                    </div>
+                                </div>
+                                <div>
+                                    <label className="block mb-2 text-sm font-medium text-gray-300">ملاحظات</label>
+                                    <textarea name="pregnancy.notes" value={formData.pregnancy?.notes || ''} onChange={handleChange as any} rows={2} className="w-full p-3 bg-gray-700 border border-gray-600 rounded-lg"></textarea>
+                                </div>
+                            </div>
+                        )}
+                    </div>
+
                     <div className="flex justify-end pt-4">
                         <button type="submit" className="px-6 py-2 bg-amber-500 text-white font-semibold rounded-lg hover:bg-amber-600 transition-colors">حفظ التعديلات</button>
                     </div>
@@ -190,7 +265,7 @@ const HorseDetailsModal: React.FC<{ horse: Horse; vaccinations: Vaccination[]; o
                                             <h4 className="font-bold text-lg text-gray-100">{record.diagnosis}</h4>
                                             {record.status && getRecordStatusBadge(record.status)}
                                         </div>
-                                        <p className="text-sm text-gray-400 font-mono">{record.date}</p>
+                                        <p className="text-sm text-gray-400">{record.date}</p>
                                     </div>
                                     
                                     {record.status === 'recovered' && record.recoveryDate && (
@@ -201,7 +276,7 @@ const HorseDetailsModal: React.FC<{ horse: Horse; vaccinations: Vaccination[]; o
                                         <div>
                                             <p className="text-sm font-semibold text-gray-300">العلاج الموصوف:</p>
                                             {record.treatment ? (
-                                                 <p className="text-sm text-gray-200 mt-1 bg-gray-800 p-3 rounded border border-gray-600 whitespace-pre-wrap font-mono">{record.treatment}</p>
+                                                 <p className="text-sm text-gray-200 mt-1 bg-gray-800 p-3 rounded border border-gray-600 whitespace-pre-wrap">{record.treatment}</p>
                                             ) : (
                                                 <p className="text-sm text-gray-500 mt-1 pr-4">لم يتم وصف علاج.</p>
                                             )}
@@ -238,7 +313,7 @@ const HorseDetailsModal: React.FC<{ horse: Horse; vaccinations: Vaccination[]; o
                                                 {vaccination.type === 'vaccination' ? 'تحصين' : 'تجريع'}
                                             </span>
                                         </div>
-                                        <p className="text-sm text-gray-400 font-mono">{vaccination.date}</p>
+                                        <p className="text-sm text-gray-400">{vaccination.date}</p>
                                     </div>
                                 </div>
                             ))}

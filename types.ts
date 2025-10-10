@@ -1,6 +1,6 @@
 // types.ts
 
-export type Page = 'dashboard' | 'horses' | 'clinic' | 'vaccinations' | 'pharmacy' | 'feeding' | 'reports' | 'reminders' | 'protocols';
+export type Page = 'dashboard' | 'horses' | 'clinic' | 'vaccinations' | 'pharmacy' | 'feeding' | 'reports' | 'reminders' | 'protocols' | 'breeding';
 
 // يمثل كل دواء في الصيدلية
 export interface Medication {
@@ -50,6 +50,11 @@ export interface Horse {
   status: 'healthy' | 'monitoring' | 'sick';
   medicalHistory: MedicalRecordEntry[];
   createdAt: string;
+  pregnancy?: {
+    conceptionDate: string;
+    expectedDueDate: string;
+    notes?: string;
+  };
 }
 
 // يمثل إدخالاً واحداً في جدول التغذية

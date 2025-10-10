@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { collection, onSnapshot, addDoc, doc, updateDoc, deleteDoc, setDoc, query, orderBy, getDocs, writeBatch, getDoc } from 'firebase/firestore';
+import { collection, onSnapshot, addDoc, doc, updateDoc, deleteDoc, setDoc, query, orderBy, getDocs, writeBatch, getDoc, deleteField } from 'firebase/firestore';
 import { db } from './services/firebase'; // Import the initialized Firestore instance
 import Sidebar from './components/Sidebar';
 import TopBar from './components/TopBar';
@@ -15,6 +15,7 @@ import RemindersPage from './pages/Reminders';
 import ProtocolsPage from './pages/Protocols';
 import VaccinationsPage from './pages/Vaccinations';
 import LoginPage from './pages/LoginPage';
+import BreedingPage from './pages/Breeding';
 
 
 const ChangeLoginPasswordModal: React.FC<{
@@ -641,13 +642,28 @@ const App: React.FC = () => {
 
   const handleEditHorse = async (updatedHorse: Horse) => {
     const { id, ...dataToUpdate } = updatedHorse;
-    await updateDoc(doc(db, "horses", id), dataToUpdate);
+    const horseRef = doc(db, "horses", id);
+    
+    const payload: { [key: string]: any } = dataToUpdate;
+
+    if (!('pregnancy' in updatedHorse)) {
+        payload.pregnancy = deleteField();
+    }
+    
+    await updateDoc(horseRef, payload);
   };
 
   const handleDeleteHorse = async (horseId: string) => {
     await deleteDoc(doc(db, "horses", horseId));
   };
   
+  const handleRecordBirth = async (horseId: string) => {
+    const horseRef = doc(db, "horses", horseId);
+    await updateDoc(horseRef, {
+        pregnancy: deleteField()
+    });
+  };
+
   const handleAddMedication = async (medication: Omit<Medication, 'id' | 'createdAt'>) => {
     await addDoc(collection(db, "medications"), { ...medication, createdAt: new Date().toISOString() });
   };
@@ -699,6 +715,41 @@ const App: React.FC = () => {
     await deleteDoc(doc(db, "vaccinations", vaccinationId));
   };
 
+  const handleCompleteReminder = async (reminder: { id: string; type: string; horseId: string; }) => {
+    try {
+        if (reminder.type === 'clinic') {
+            const entryRef = doc(db, "clinicLog", reminder.id);
+            await updateDoc(entryRef, {
+                followUpDate: deleteField(),
+                followUpNotes: deleteField()
+            });
+
+            // Also update the horse's medical history to reflect the change
+            const horseRef = doc(db, "horses", reminder.horseId);
+            const targetHorse = horses.find(h => h.id === reminder.horseId);
+            if (targetHorse) {
+                const historyIndex = targetHorse.medicalHistory.findIndex(rec => rec.id === reminder.id);
+                if (historyIndex > -1) {
+                    const newHistory = [...targetHorse.medicalHistory];
+                    const updatedRecord = { ...newHistory[historyIndex] };
+                    delete updatedRecord.followUpDate;
+                    delete updatedRecord.followUpNotes;
+                    newHistory[historyIndex] = updatedRecord;
+                    await updateDoc(horseRef, { medicalHistory: newHistory });
+                }
+            }
+        } else if (reminder.type === 'vaccination' || reminder.type === 'deworming') {
+            const vaccRef = doc(db, "vaccinations", reminder.id);
+            await updateDoc(vaccRef, {
+                nextDueDate: deleteField()
+            });
+        }
+    } catch (error) {
+        console.error("Error completing reminder:", error);
+        alert("حدث خطأ أثناء إتمام المهمة.");
+    }
+  };
+
   const activePageLabel = NAV_ITEMS.find(item => item.id === activePage)?.label || 'لوحة التحكم';
 
   const renderPage = () => {
@@ -747,10 +798,16 @@ const App: React.FC = () => {
                     globalBattalionFilter={globalBattalionFilter}
                     setGlobalBattalionFilter={setGlobalBattalionFilter}
                 />;
+      case 'breeding':
+        return <BreedingPage
+                    horses={horses}
+                    onRecordBirth={handleRecordBirth}
+                    globalBattalionFilter={globalBattalionFilter}
+                />;
       case 'reports':
         return <ReportsPage clinicLog={clinicLog} horses={horses} medications={medications} globalBattalionFilter={globalBattalionFilter} />;
       case 'reminders':
-        return <RemindersPage clinicLog={clinicLog} horses={horses} vaccinations={vaccinations} globalBattalionFilter={globalBattalionFilter}/>;
+        return <RemindersPage clinicLog={clinicLog} horses={horses} vaccinations={vaccinations} globalBattalionFilter={globalBattalionFilter} onCompleteReminder={handleCompleteReminder}/>;
       case 'protocols':
         return <ProtocolsPage protocols={treatmentProtocols} onAddProtocol={handleAddProtocol} onEditProtocol={handleEditProtocol} onDeleteProtocol={handleDeleteProtocol} />;
       default:

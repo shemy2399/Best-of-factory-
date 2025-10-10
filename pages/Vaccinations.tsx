@@ -1,6 +1,7 @@
 import React, { useState, useMemo } from 'react';
 import { Horse, Vaccination } from '../types';
 import { PlusIcon, PencilIcon, TrashIcon, XMarkIcon, VaccinationIcon } from '../components/icons';
+import DateInput from '../components/DateInput';
 
 interface VaccinationsPageProps {
   horses: Horse[];
@@ -19,6 +20,7 @@ const AddVaccinationModal: React.FC<{
 }> = ({ horses, onClose, onAdd }) => {
     const [selectedHorses, setSelectedHorses] = useState<Horse[]>([]);
     const [horseSearch, setHorseSearch] = useState('');
+    const [showHorseList, setShowHorseList] = useState(false);
     
     const [type, setType] = useState<Vaccination['type']>('vaccination');
     const [productName, setProductName] = useState('');
@@ -73,7 +75,7 @@ const AddVaccinationModal: React.FC<{
 
     return (
         <div className="fixed inset-0 bg-black bg-opacity-75 flex justify-center items-center z-50">
-            <div className="bg-gray-800 rounded-xl shadow-2xl p-8 w-full max-w-3xl border border-gray-700">
+            <div className="bg-gray-800 rounded-xl shadow-2xl p-8 w-full max-w-2xl border border-gray-700 max-h-[90vh] overflow-y-auto">
                 <div className="flex justify-between items-center mb-6">
                     <h2 className="text-2xl font-bold text-white">تسجيل جديد</h2>
                     <button onClick={onClose} className="text-gray-400 hover:text-gray-200"><XMarkIcon className="w-6 h-6" /></button>
@@ -81,48 +83,40 @@ const AddVaccinationModal: React.FC<{
                 <form onSubmit={handleSubmit} className="space-y-4">
                      <div>
                         <label className="block mb-2 font-medium text-gray-300">اختر الخيول</label>
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 h-72">
-                            {/* Search & Available Horses Column */}
-                            <div className="flex flex-col p-3 bg-gray-900/50 rounded-lg">
-                                <input 
-                                    type="text"
-                                    value={horseSearch}
-                                    onChange={(e) => setHorseSearch(e.target.value)}
-                                    placeholder="ابحث بالاسم أو الرقم لإضافة حصان..."
-                                    className="w-full p-2 mb-2 bg-gray-700 border border-gray-600 rounded-lg text-gray-200"
-                                />
-                                <ul className="flex-1 overflow-y-auto">
+                        <div className="flex flex-wrap gap-2 p-2 bg-gray-900/50 rounded-lg min-h-[48px] border border-gray-700">
+                            {selectedHorses.length === 0 && <span className="text-gray-500 px-2 py-1">لم يتم تحديد أي خيول</span>}
+                            {selectedHorses.map(horse => (
+                                <div key={horse.id} className="flex items-center gap-2 bg-amber-500/20 text-amber-200 text-sm font-medium px-3 py-1 rounded-full animate-fade-in">
+                                    <span>{horse.name} ({horse.number})</span>
+                                    <button type="button" onClick={() => handleRemoveHorse(horse.id)} className="text-amber-400 hover:text-white rounded-full hover:bg-black/20">
+                                        <XMarkIcon className="w-4 h-4" />
+                                    </button>
+                                </div>
+                            ))}
+                        </div>
+                        <div className="relative mt-2">
+                           <input 
+                             type="text"
+                             value={horseSearch}
+                             onChange={(e) => setHorseSearch(e.target.value)}
+                             onFocus={() => setShowHorseList(true)}
+                             onBlur={() => setTimeout(() => setShowHorseList(false), 200)}
+                             placeholder="ابحث بالاسم أو الرقم لإضافة حصان..."
+                             className="w-full p-3 bg-gray-700 border border-gray-600 rounded-lg text-gray-200 focus:ring-amber-500 focus:border-amber-500"
+                           />
+                           {showHorseList && availableHorsesToSelect.length > 0 && (
+                                <ul className="absolute z-20 w-full bg-gray-900 border border-gray-600 rounded-lg mt-1 max-h-60 overflow-y-auto shadow-lg">
                                     {availableHorsesToSelect.map(h => (
                                         <li 
                                             key={h.id} 
-                                            onClick={() => handleSelectHorse(h)}
-                                            className="p-2 hover:bg-amber-500/20 cursor-pointer text-gray-200 rounded-md"
+                                            onMouseDown={() => handleSelectHorse(h)}
+                                            className="p-3 hover:bg-amber-500/20 cursor-pointer text-gray-200"
                                         >
                                             {h.name} ({h.number})
                                         </li>
                                     ))}
                                 </ul>
-                            </div>
-                            {/* Selected Horses Column */}
-                            <div className="flex flex-col p-3 bg-gray-900/50 rounded-lg">
-                                <h4 className="font-semibold text-gray-200 mb-2 border-b border-gray-600 pb-2">الخيول المحددة ({selectedHorses.length})</h4>
-                                {selectedHorses.length > 0 ? (
-                                    <ul className="flex-1 overflow-y-auto space-y-2">
-                                        {selectedHorses.map(h => (
-                                            <li key={h.id} className="flex justify-between items-center p-2 bg-gray-700 rounded-md">
-                                                <span className="text-gray-100">{h.name} ({h.number})</span>
-                                                <button type="button" onClick={() => handleRemoveHorse(h.id)} className="text-red-400 hover:text-red-300">
-                                                    <XMarkIcon className="w-4 h-4" />
-                                                </button>
-                                            </li>
-                                        ))}
-                                    </ul>
-                                ) : (
-                                    <div className="flex-1 flex items-center justify-center text-gray-500">
-                                        <p>لم يتم تحديد أي خيول.</p>
-                                    </div>
-                                )}
-                            </div>
+                           )}
                         </div>
                     </div>
                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -138,7 +132,7 @@ const AddVaccinationModal: React.FC<{
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       <div>
                           <label className="block mb-2 font-medium text-gray-300">تاريخ الإجراء</label>
-                          <input name="date" type="date" value={date} onChange={(e) => setDate(e.target.value)} className="w-full p-3 bg-gray-700 border border-gray-600 rounded-lg text-gray-200" required />
+                          <DateInput value={date} onChange={setDate} required />
                       </div>
                        <div>
                           <label className="block mb-2 font-medium text-gray-300">الموعد القادم (اختياري)</label>
@@ -243,7 +237,7 @@ const EditVaccinationModal: React.FC<{
                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div>
                           <label className="block mb-2 font-medium text-gray-300">تاريخ الإجراء</label>
-                          <input name="date" type="date" value={formData.date} onChange={handleChange} className="w-full p-3 bg-gray-700 border border-gray-600 rounded-lg text-gray-200" required />
+                          <DateInput value={formData.date} onChange={value => handleChange({target: {name: 'date', value}} as any)} required />
                         </div>
                          <div>
                           <label className="block mb-2 font-medium text-gray-300">الموعد القادم</label>

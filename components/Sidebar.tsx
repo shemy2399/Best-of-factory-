@@ -23,8 +23,8 @@ const NavButton: React.FC<{ item: NavItem, isActive: boolean, onClick: () => voi
             : 'text-gray-300 hover:bg-gray-700 hover:text-white'
         }`}
       >
-        {item.icon}
-        <span className={`mr-4 ${isSubItem ? 'text-sm' : 'font-medium'}`}>{item.label}</span>
+        {React.cloneElement(item.icon as React.ReactElement, { className: "w-5 h-5" })}
+        <span className={`mr-3 whitespace-nowrap ${isSubItem ? 'text-sm' : 'font-medium'}`}>{item.label}</span>
     </button>
 );
 
@@ -34,8 +34,8 @@ const GroupButton: React.FC<{ item: NavItemGroup, isOpen: boolean, onClick: () =
         className="flex items-center justify-between w-full p-3 my-1 font-medium text-gray-300 hover:bg-gray-700 hover:text-white rounded-lg transition-colors"
     >
         <div className="flex items-center">
-            {item.icon}
-            <span className="mr-4">{item.title}</span>
+            {React.cloneElement(item.icon as React.ReactElement, { className: "w-5 h-5" })}
+            <span className="mr-3">{item.title}</span>
         </div>
         <svg className={`w-4 h-4 transform transition-transform ${isOpen ? 'rotate-0' : '-rotate-90'}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7" />
@@ -81,7 +81,7 @@ const Sidebar: React.FC<SidebarProps> = ({ activePage, setActivePage, onDeleteAl
                           <li key={navItem.title}>
                              <GroupButton item={navItem} isOpen={isGroupOpen} onClick={() => toggleGroup(navItem.title)} />
                               {isGroupOpen && (
-                                  <ul className="pl-4 border-r-2 border-gray-700/50 mr-2">
+                                  <ul className="pl-4 border-r-2 border-gray-700/50 ml-2">
                                       {navItem.items.map(item => (
                                           <li key={item.id}>
                                               <NavButton item={item} isActive={activePage === item.id} onClick={() => setActivePage(item.id)} isSubItem={true} />

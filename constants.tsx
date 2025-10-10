@@ -1,6 +1,6 @@
 import React from 'react';
 import { Page } from './types';
-import { DashboardIcon, HorseIcon, ClinicIcon, VaccinationIcon, RemindersIcon, PharmacyIcon, ProtocolsIcon, ReportsIcon, FeedingIcon, MedicalRecordsIcon, ManagementIcon } from './components/icons';
+import { DashboardIcon, HorseIcon, ClinicIcon, VaccinationIcon, RemindersIcon, PharmacyIcon, ProtocolsIcon, ReportsIcon, FeedingIcon, MedicalRecordsIcon, ManagementIcon, BreedingIcon } from './components/icons';
 
 export interface NavItem {
   id: Page;
@@ -18,59 +18,64 @@ export const NAV_STRUCTURE: (NavItem | NavItemGroup)[] = [
   {
     id: 'dashboard',
     label: 'لوحة التحكم',
-    icon: <DashboardIcon className="w-5 h-5 ml-3" />,
+    icon: <DashboardIcon />,
   },
   {
     id: 'horses',
     label: 'سجلات الخيول',
-    icon: <HorseIcon className="w-5 h-5 ml-3" />,
+    icon: <HorseIcon />,
   },
   {
     title: 'السجلات الطبية',
-    icon: <MedicalRecordsIcon className="w-5 h-5 ml-3" />,
+    icon: <MedicalRecordsIcon />,
     items: [
       {
         id: 'clinic',
         label: 'دفتر العيادة',
-        icon: <ClinicIcon className="w-5 h-5 ml-3" />,
+        icon: <ClinicIcon />,
       },
       {
         id: 'vaccinations',
         label: 'التحصينات والتجريعات',
-        icon: <VaccinationIcon className="w-5 h-5 ml-3" />,
+        icon: <VaccinationIcon />,
       },
       {
         id: 'pharmacy',
         label: 'الصيدلية',
-        icon: <PharmacyIcon className="w-5 h-5 ml-3" />,
+        icon: <PharmacyIcon />,
       },
     ]
   },
   {
     title: 'الإدارة والمتابعة',
-    icon: <ManagementIcon className="w-5 h-5 ml-3" />,
+    icon: <ManagementIcon />,
     items: [
        {
         id: 'reminders',
         label: 'المتابعات والتذكيرات',
-        icon: <RemindersIcon className="w-5 h-5 ml-3" />,
+        icon: <RemindersIcon />,
       },
       {
         id: 'feeding',
         label: 'نظام العلائق',
-        icon: <FeedingIcon className="w-5 h-5 ml-3" />,
+        icon: <FeedingIcon />,
+      },
+       {
+        id: 'breeding',
+        label: 'الأفراس العشار',
+        icon: <BreedingIcon />,
       },
     ]
   },
   {
     id: 'protocols',
     label: 'بروتوكولات العلاج',
-    icon: <ProtocolsIcon className="w-5 h-5 ml-3" />,
+    icon: <ProtocolsIcon />,
   },
   {
     id: 'reports',
     label: 'التقارير والإحصائيات',
-    icon: <ReportsIcon className="w-5 h-5 ml-3" />,
+    icon: <ReportsIcon />,
   },
 ];
 

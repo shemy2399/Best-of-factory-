@@ -1,6 +1,7 @@
 import React, { useState, useMemo } from 'react';
 import { Medication, Horse } from '../types';
 import { PlusIcon, PencilIcon, TrashIcon, XMarkIcon, PharmacyIcon } from '../components/icons';
+import DateInput from '../components/DateInput';
 
 
 interface PharmacyPageProps {
@@ -54,8 +55,8 @@ const AddMedicationModal: React.FC<{
           <input name="quantity" type="number" min="0" value={formData.quantity} onChange={handleChange} placeholder="الكمية" className="p-3 w-full bg-gray-700 border border-gray-600 rounded-lg text-gray-200 focus:ring-amber-500 focus:border-amber-500" required />
           <input name="unit" value={formData.unit} onChange={handleChange} placeholder="وحدة القياس (مثال: زجاجة، شريط)" className="p-3 w-full bg-gray-700 border border-gray-600 rounded-lg text-gray-200 focus:ring-amber-500 focus:border-amber-500" required />
           <div>
-            <label className="text-sm text-gray-400">تاريخ الصلاحية</label>
-            <input name="expiryDate" type="date" value={formData.expiryDate} onChange={handleChange} className="p-3 mt-1 w-full bg-gray-700 border border-gray-600 rounded-lg text-gray-200 focus:ring-amber-500 focus:border-amber-500" required />
+            <label className="block mb-2 text-sm font-medium text-gray-300">تاريخ الصلاحية</label>
+            <DateInput value={formData.expiryDate} onChange={value => handleChange({target: {name: 'expiryDate', value}} as any)} required />
           </div>
           <div className="flex justify-end pt-4">
             <button type="submit" className="px-6 py-2 bg-amber-500 font-semibold text-white rounded-lg hover:bg-amber-600 transition-colors">إضافة الدواء</button>
@@ -102,8 +103,8 @@ const EditMedicationModal: React.FC<{
                     <input name="quantity" type="number" min="0" value={formData.quantity} onChange={handleChange} placeholder="الكمية" className="w-full p-3 bg-gray-700 border border-gray-600 rounded-lg text-gray-200 focus:ring-amber-500 focus:border-amber-500" required />
                     <input name="unit" value={formData.unit} onChange={handleChange} placeholder="وحدة القياس" className="w-full p-3 bg-gray-700 border border-gray-600 rounded-lg text-gray-200 focus:ring-amber-500 focus:border-amber-500" required />
                      <div>
-                        <label className="text-sm text-gray-400">تاريخ الصلاحية</label>
-                        <input name="expiryDate" type="date" value={formData.expiryDate} onChange={handleChange} className="w-full p-3 mt-1 bg-gray-700 border border-gray-600 rounded-lg text-gray-200 focus:ring-amber-500 focus:border-amber-500" required />
+                        <label className="block mb-2 text-sm font-medium text-gray-300">تاريخ الصلاحية</label>
+                        <DateInput value={formData.expiryDate} onChange={value => handleChange({target: {name: 'expiryDate', value}} as any)} required />
                     </div>
                     <div className="flex justify-end pt-4">
                         <button type="submit" className="px-6 py-2 bg-amber-500 text-white font-semibold rounded-lg hover:bg-amber-600 transition-colors">حفظ التعديلات</button>

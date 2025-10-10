@@ -1,6 +1,7 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { Horse, Medication, MedicalRecordEntry, TreatmentProtocol } from '../types';
 import { PlusIcon, XMarkIcon, HorseIcon, PencilIcon, TrashIcon } from '../components/icons';
+import DateInput from '../components/DateInput';
 
 type ClinicLogEntry = { horseName: string; horseId: string } & MedicalRecordEntry;
 
@@ -150,7 +151,7 @@ const AddEntryModal: React.FC<{
                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                          <div>
                             <label className="block mb-2 font-medium text-gray-300">تاريخ دخول الحالة</label>
-                            <input type="date" value={date} onChange={e => setDate(e.target.value)} className="w-full p-3 bg-gray-700 border border-gray-600 rounded-lg" required />
+                            <DateInput value={date} onChange={setDate} required />
                         </div>
                         <div>
                            <label className="block mb-2 font-medium text-gray-300">حالة الحصان</label>
@@ -165,7 +166,7 @@ const AddEntryModal: React.FC<{
                     {status === 'recovered' && (
                         <div>
                             <label className="block mb-2 font-medium text-gray-300">تاريخ الشفاء</label>
-                            <input type="date" value={recoveryDate} onChange={e => setRecoveryDate(e.target.value)} className="w-full p-3 bg-gray-700 border border-gray-600 rounded-lg" required />
+                            <DateInput value={recoveryDate} onChange={setRecoveryDate} required />
                         </div>
                     )}
                     <div className="relative">
@@ -194,7 +195,7 @@ const AddEntryModal: React.FC<{
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                             <div>
                                 <label className="block mb-2 text-sm font-medium text-gray-300">تاريخ المتابعة</label>
-                                <input type="date" value={followUpDate} onChange={e => setFollowUpDate(e.target.value)} className="w-full p-2 bg-gray-700 border border-gray-600 rounded-lg"/>
+                                <DateInput value={followUpDate} onChange={setFollowUpDate} inputClassName="p-2" />
                             </div>
                             <div className="md:col-span-2">
                                 <label className="block mb-2 text-sm font-medium text-gray-300">ملاحظات المتابعة</label>
@@ -269,7 +270,7 @@ const EditEntryModal: React.FC<{
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                          <div>
                             <label className="block mb-2 font-medium text-gray-300">تاريخ دخول الحالة</label>
-                            <input name="date" type="date" value={formData.date} onChange={handleChange} className="w-full p-3 bg-gray-700 border border-gray-600 rounded-lg" required />
+                            <DateInput value={formData.date} onChange={value => handleChange({target:{name:'date', value}} as any)} required />
                         </div>
                         <div>
                            <label className="block mb-2 font-medium text-gray-300">حالة الحصان</label>
@@ -284,7 +285,7 @@ const EditEntryModal: React.FC<{
                     {formData.status === 'recovered' && (
                         <div>
                             <label className="block mb-2 font-medium text-gray-300">تاريخ الشفاء</label>
-                            <input name="recoveryDate" type="date" value={formData.recoveryDate} onChange={handleChange} className="w-full p-3 bg-gray-700 border border-gray-600 rounded-lg" required />
+                            <DateInput value={formData.recoveryDate} onChange={value => handleChange({target:{name:'recoveryDate', value}} as any)} required />
                         </div>
                     )}
                     <div>
@@ -304,7 +305,7 @@ const EditEntryModal: React.FC<{
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                             <div>
                                 <label className="block mb-2 text-sm font-medium text-gray-300">تاريخ المتابعة</label>
-                                <input name="followUpDate" type="date" value={formData.followUpDate} onChange={handleChange} className="w-full p-2 bg-gray-700 border border-gray-600 rounded-lg"/>
+                                <DateInput value={formData.followUpDate} onChange={value => handleChange({target:{name:'followUpDate', value}} as any)} inputClassName="p-2"/>
                             </div>
                             <div className="md:col-span-2">
                                 <label className="block mb-2 text-sm font-medium text-gray-300">ملاحظات المتابعة</label>
@@ -425,9 +426,11 @@ const ClinicPage: React.FC<ClinicPageProps> = ({ horses, clinicLog, protocols, o
         </div>
       </div>
 
-      <div className="bg-gray-700 p-4 rounded-xl shadow-lg flex items-center gap-4 flex-wrap">
-        <label htmlFor="filterDate" className="font-medium text-gray-300">بحث بالتاريخ:</label>
-        <input type="date" id="filterDate" value={filterDate} onChange={(e) => setFilterDate(e.target.value)} className="p-2 bg-gray-800 border border-gray-600 rounded-lg text-gray-200"/>
+      <div className="bg-gray-700 p-4 rounded-xl shadow-lg flex items-center gap-4">
+        <label className="font-medium text-gray-300 flex-shrink-0">بحث بالتاريخ:</label>
+        <div className="w-full max-w-xs">
+           <DateInput value={filterDate} onChange={setFilterDate} inputClassName="p-2" />
+        </div>
         <button onClick={() => setFilterDate('')} className="px-4 py-2 bg-gray-600 text-gray-200 font-semibold rounded-lg hover:bg-gray-500" disabled={!filterDate}>مسح الفلتر</button>
       </div>
 
