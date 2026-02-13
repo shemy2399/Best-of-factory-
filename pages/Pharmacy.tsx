@@ -1,4 +1,5 @@
-import React, { useState, useMemo } from 'react';
+
+import React, { useState, useMemo, useEffect } from 'react';
 import { Medication, Horse } from '../types';
 import { PlusIcon, PencilIcon, TrashIcon, XMarkIcon, PharmacyIcon } from '../components/icons';
 import DateInput from '../components/DateInput';
@@ -56,7 +57,7 @@ const AddMedicationModal: React.FC<{
           <input name="unit" value={formData.unit} onChange={handleChange} placeholder="وحدة القياس (مثال: زجاجة، شريط)" className="p-3 w-full bg-gray-700 border border-gray-600 rounded-lg text-gray-200 focus:ring-amber-500 focus:border-amber-500" required />
           <div>
             <label className="block mb-2 text-sm font-medium text-gray-300">تاريخ الصلاحية</label>
-            <DateInput value={formData.expiryDate} onChange={value => handleChange({target: {name: 'expiryDate', value}} as any)} required />
+            <DateInput value={formData.expiryDate} onChange={value => setFormData({...formData, expiryDate: value})} required />
           </div>
           <div className="flex justify-end pt-4">
             <button type="submit" className="px-6 py-2 bg-amber-500 font-semibold text-white rounded-lg hover:bg-amber-600 transition-colors">إضافة الدواء</button>
@@ -104,7 +105,7 @@ const EditMedicationModal: React.FC<{
                     <input name="unit" value={formData.unit} onChange={handleChange} placeholder="وحدة القياس" className="w-full p-3 bg-gray-700 border border-gray-600 rounded-lg text-gray-200 focus:ring-amber-500 focus:border-amber-500" required />
                      <div>
                         <label className="block mb-2 text-sm font-medium text-gray-300">تاريخ الصلاحية</label>
-                        <DateInput value={formData.expiryDate} onChange={value => handleChange({target: {name: 'expiryDate', value}} as any)} required />
+                        <DateInput value={formData.expiryDate} onChange={value => setFormData({...formData, expiryDate: value})} required />
                     </div>
                     <div className="flex justify-end pt-4">
                         <button type="submit" className="px-6 py-2 bg-amber-500 text-white font-semibold rounded-lg hover:bg-amber-600 transition-colors">حفظ التعديلات</button>
@@ -161,7 +162,16 @@ const PharmacyPage: React.FC<PharmacyPageProps> = ({
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [editingMedication, setEditingMedication] = useState<Medication | null>(null);
   const [deletingMedication, setDeletingMedication] = useState<Medication | null>(null);
-  const [searchTerm, setSearchTerm] = useState('');
+  const [displaySearch, setDisplaySearch] = useState('');
+  const [debouncedSearch, setDebouncedSearch] = useState('');
+
+  // Debounce logic
+  useEffect(() => {
+    const handler = setTimeout(() => {
+        setDebouncedSearch(displaySearch);
+    }, 300);
+    return () => clearTimeout(handler);
+  }, [displaySearch]);
 
   const BATTALIONS: Exclude<Horse['battalion'], 'الكل'>[] = ['الكتيبة الاولى', 'الكتيبة الثانية', 'الكتيبة الثالثة', 'نادي الفروسية'];
 
@@ -171,20 +181,18 @@ const PharmacyPage: React.FC<PharmacyPageProps> = ({
   }, [medications, globalBattalionFilter]);
 
   const filteredMedications = useMemo(() => {
-    if (!searchTerm.trim()) {
+    if (!debouncedSearch.trim()) {
         return medicationsForSelectedBattalion;
     }
-    const lowercasedFilter = searchTerm.toLowerCase().trim();
+    const lowercasedFilter = debouncedSearch.toLowerCase().trim();
     return medicationsForSelectedBattalion.filter(med =>
         med.name.toLowerCase().includes(lowercasedFilter)
     );
-  }, [medicationsForSelectedBattalion, searchTerm]);
+  }, [medicationsForSelectedBattalion, debouncedSearch]);
 
   const handleQuantityChange = (medication: Medication, amount: number) => {
     const newQuantity = medication.quantity + amount;
-    if (newQuantity < 0) {
-      return; // Prevent quantity from going negative
-    }
+    if (newQuantity < 0) return;
     onEditMedication({ ...medication, quantity: newQuantity });
   };
 
@@ -273,8 +281,8 @@ const PharmacyPage: React.FC<PharmacyPageProps> = ({
           <input
               type="text"
               placeholder="ابحث عن دواء..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
+              value={displaySearch}
+              onChange={(e) => setDisplaySearch(e.target.value)}
               className="w-full p-3 pr-10 bg-gray-700 border border-gray-600 rounded-lg text-gray-200 placeholder-gray-400 focus:ring-amber-500 focus:border-amber-500"
               aria-label="Search medications"
           />

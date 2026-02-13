@@ -1,3 +1,4 @@
+
 import { GoogleGenAI } from "@google/genai";
 
 // This check ensures the API key is available.
@@ -18,13 +19,15 @@ const systemInstruction = `You are an expert equine veterinary diagnostic assist
 export const getDiagnosticAssistance = async (symptoms: string): Promise<string> => {
     try {
         const response = await ai.models.generateContent({
-            model: 'gemini-2.5-flash',
+            // FIX: Use 'gemini-3-pro-preview' for complex text tasks like medical diagnostics.
+            model: 'gemini-3-pro-preview',
             contents: symptoms,
             config: {
                 systemInstruction: systemInstruction,
             },
         });
-        return response.text;
+        // FIX: Ensure response.text is handled correctly as a property (not a method).
+        return response.text || "لم يتم الحصول على رد من المساعد الذكي.";
     } catch (error) {
         console.error("Error calling Gemini API:", error);
         return "حدث خطأ أثناء محاولة الحصول على المساعدة التشخيصية. يرجى المحاولة مرة أخرى.";

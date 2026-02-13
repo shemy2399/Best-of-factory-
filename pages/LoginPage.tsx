@@ -1,21 +1,27 @@
+
 import React, { useState } from 'react';
 import { LogoIcon } from '../components/icons';
+import { AdminUser } from '../types';
 
 interface LoginPageProps {
-  onLoginSuccess: () => void;
-  correctCredentials: { username: string; password: string; };
+  onLoginSuccess: (user: AdminUser) => void;
+  admins: AdminUser[];
 }
 
-const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess, correctCredentials }) => {
+const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess, admins }) => {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (username === correctCredentials.username && password === correctCredentials.password) {
+    
+    // التحقق من وجود المستخدم في القائمة
+    const validUser = admins.find(admin => admin.username === username && admin.password === password);
+    
+    if (validUser) {
       setError('');
-      onLoginSuccess();
+      onLoginSuccess(validUser);
     } else {
       setError('اسم المستخدم أو كلمة المرور غير صحيحة.');
     }
@@ -25,7 +31,9 @@ const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess, correctCredential
     <div className="flex items-center justify-center min-h-screen bg-gray-900">
       <div className="w-full max-w-md p-8 space-y-8 bg-gray-800 rounded-2xl shadow-2xl border border-gray-700">
         <div className="text-center">
-          <LogoIcon className="w-20 h-20 mx-auto text-amber-400" />
+          <div className="flex justify-center">
+             <LogoIcon className="w-20 h-20 text-amber-400" />
+          </div>
           <h1 className="mt-6 text-3xl font-bold text-white">
             نظام الخيالة
           </h1>

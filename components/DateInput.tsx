@@ -1,4 +1,5 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 
 interface DateInputProps {
   value: string; // YYYY-MM-DD
@@ -8,110 +9,106 @@ interface DateInputProps {
 }
 
 const DateInput: React.FC<DateInputProps> = ({ value, onChange, required, inputClassName = "p-3" }) => {
-  const [day, setDay] = useState('');
-  const [month, setMonth] = useState('');
-  const [year, setYear] = useState('');
-  
-  const hasInitialized = useRef(false);
+  // Initialize state directly from props to avoid effect loops
+  const splitDate = (val: string) => {
+    if (val && /^\d{4}-\d{2}-\d{2}$/.test(val)) {
+      const [y, m, d] = val.split('-');
+      return { d, m, y };
+    }
+    return { d: '', m: '', y: '' };
+  };
 
+  const initial = splitDate(value);
+  const [day, setDay] = useState(initial.d);
+  const [month, setMonth] = useState(initial.m);
+  const [year, setYear] = useState(initial.y);
+
+  // Refs to prevent cyclic dependency loops
+  const isInternalChange = useRef(false);
+
+  // Sync from parent (only if parent value changes externally)
   useEffect(() => {
-    if (value && /^\d{4}-\d{2}-\d{2}$/.test(value)) {
-      const [y, m, d] = value.split('-');
-      setYear(y);
-      setMonth(m);
-      setDay(d);
-    } else if (!value) {
-      setYear('');
-      setMonth('');
-      setDay('');
+    if (!isInternalChange.current) {
+        const { d, m, y } = splitDate(value);
+        setDay(d);
+        setMonth(m);
+        setYear(y);
     }
-    // Set to true after first render, to avoid firing onChange on mount with empty value
-    if (!hasInitialized.current) {
-        setTimeout(() => { hasInitialized.current = true; }, 0);
-    }
+    isInternalChange.current = false;
   }, [value]);
 
-  const propagateChange = useCallback((d: string, m: string, y: string) => {
-    if (!hasInitialized.current) return;
-
+  const updateParent = useCallback((d: string, m: string, y: string) => {
+    isInternalChange.current = true;
     if (d && m && y && d.length > 0 && m.length > 0 && y.length === 4) {
-      const dayNum = parseInt(d, 10);
-      const monthNum = parseInt(m, 10);
-      const yearNum = parseInt(y, 10);
-      // Basic validation
-      if (dayNum > 0 && dayNum <= 31 && monthNum > 0 && monthNum <= 12 && yearNum > 1900 && yearNum < 2100) {
-        onChange(`${y}-${m.padStart(2,'0')}-${d.padStart(2,'0')}`);
-        return;
-      }
-    } 
-    
-    if (!d && !m && !y) {
-        onChange('');
+      onChange(`${y}-${m.padStart(2,'0')}-${d.padStart(2,'0')}`);
+    } else if (!d && !m && !y) {
+      onChange('');
     }
   }, [onChange]);
 
-  const handleInputChange = (
-    setter: React.Dispatch<React.SetStateAction<string>>,
-    maxLength: number,
-    nextFieldRef?: React.RefObject<HTMLInputElement>
-  ) => (e: React.ChangeEvent<HTMLInputElement>) => {
-    const inputValue = e.target.value.replace(/[^0-9]/g, '');
-    if (inputValue.length <= maxLength) {
-      setter(inputValue);
-      if (inputValue.length === maxLength && nextFieldRef?.current) {
-        nextFieldRef.current.focus();
-      }
-    }
+  const handleDayChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const val = e.target.value.replace(/[^0-9]/g, '').slice(0, 2);
+    setDay(val);
+    updateParent(val, month, year);
+    if (val.length === 2) monthRef.current?.focus();
   };
-  
-  useEffect(() => {
-    propagateChange(day, month, year);
-  }, [day, month, year, propagateChange]);
+
+  const handleMonthChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const val = e.target.value.replace(/[^0-9]/g, '').slice(0, 2);
+    setMonth(val);
+    updateParent(day, val, year);
+    if (val.length === 2) yearRef.current?.focus();
+  };
+
+  const handleYearChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const val = e.target.value.replace(/[^0-9]/g, '').slice(0, 4);
+    setYear(val);
+    updateParent(day, month, val);
+  };
 
   const monthRef = useRef<HTMLInputElement>(null);
   const yearRef = useRef<HTMLInputElement>(null);
   
-  const commonInputClass = `w-full bg-gray-700 border border-gray-600 rounded-lg text-gray-200 text-center focus:ring-amber-500 focus:border-amber-500 ${inputClassName}`;
+  const commonInputClass = `w-full bg-gray-700 border border-gray-600 rounded-lg text-gray-200 text-center focus:ring-amber-500 focus:border-amber-500 transition-none ${inputClassName}`;
 
   return (
-      <div className="flex items-center gap-2">
-        <input
-          type="text"
-          inputMode="numeric"
-          value={day}
-          onChange={handleInputChange(setDay, 2, monthRef)}
-          placeholder="يوم"
-          maxLength={2}
-          className={commonInputClass}
-          required={required}
-          aria-label="Day"
-        />
-        <input
-          ref={monthRef}
-          type="text"
-          inputMode="numeric"
-          value={month}
-          onChange={handleInputChange(setMonth, 2, yearRef)}
-          placeholder="شهر"
-          maxLength={2}
-          className={commonInputClass}
-          required={required}
-          aria-label="Month"
-        />
+      <div className="flex items-center gap-2" dir="ltr">
         <input
           ref={yearRef}
           type="text"
           inputMode="numeric"
           value={year}
-          onChange={handleInputChange(setYear, 4)}
-          placeholder="سنة"
+          onChange={handleYearChange}
+          placeholder="YYYY"
           maxLength={4}
-          className={commonInputClass}
+          className={`${commonInputClass} w-[40%]`}
           required={required}
-          aria-label="Year"
+        />
+        <span className="text-gray-500">-</span>
+        <input
+          ref={monthRef}
+          type="text"
+          inputMode="numeric"
+          value={month}
+          onChange={handleMonthChange}
+          placeholder="MM"
+          maxLength={2}
+          className={`${commonInputClass} w-[25%]`}
+          required={required}
+        />
+        <span className="text-gray-500">-</span>
+         <input
+          type="text"
+          inputMode="numeric"
+          value={day}
+          onChange={handleDayChange}
+          placeholder="DD"
+          maxLength={2}
+          className={`${commonInputClass} w-[25%]`}
+          required={required}
         />
       </div>
   );
 };
 
-export default DateInput;
+export default React.memo(DateInput);

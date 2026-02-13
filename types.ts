@@ -1,19 +1,32 @@
+
 // types.ts
 
-export type Page = 'dashboard' | 'horses' | 'clinic' | 'vaccinations' | 'pharmacy' | 'feeding' | 'reports' | 'reminders' | 'protocols' | 'breeding';
+export type Page = 'dashboard' | 'horses' | 'clinic' | 'vaccinations' | 'pharmacy' | 'feeding' | 'reports' | 'reminders' | 'protocols' | 'breeding' | 'nursing' | 'admins';
 
-// يمثل كل دواء في الصيدلية
+export interface ProtectedPageAccess {
+  pageId: Page;
+  accessCode: string;
+}
+
+export interface AdminUser {
+  id: string;
+  username: string;
+  password: string;
+  createdAt: string;
+  assignedBattalion?: 'الكتيبة الاولى' | 'الكتيبة الثانية' | 'الكتيبة الثالثة' | 'نادي الفروسية' | 'الكل';
+  protectedPages?: ProtectedPageAccess[]; // قائمة بالصفحات المحمية مع رموزها الخاصة
+}
+
 export interface Medication {
   id: string;
   name: string;
-  quantity: number; // الكمية المتبقية
+  quantity: number;
   unit: string;
   expiryDate: string;
   battalion: 'الكتيبة الاولى' | 'الكتيبة الثانية' | 'الكتيبة الثالثة' | 'نادي الفروسية';
   createdAt: string;
 }
 
-// يمثل إدخالاً واحداً في السجل الطبي للحصان (زيارة للعيادة)
 export interface MedicalRecordEntry {
   id: string;
   date: string;
@@ -22,29 +35,30 @@ export interface MedicalRecordEntry {
   notes?: string;
   status: 'healthy' | 'monitoring' | 'sick' | 'recovered';
   recoveryDate?: string;
-  followUpDate?: string; // For the new reminders system
-  followUpNotes?: string; // For the new reminders system
+  followUpDate?: string;
+  followUpNotes?: string;
 }
 
-// يمثل سجل تحصين أو تجريع
 export interface Vaccination {
   id: string;
   horseId: string;
   horseName: string;
-  type: 'vaccination' | 'deworming'; // النوع
-  productName: string; // اسم المنتج
+  type: 'vaccination' | 'deworming';
+  productName: string;
   date: string;
   createdAt: string;
-  nextDueDate?: string; // تاريخ الموعد القادم
+  nextDueDate?: string;
 }
 
-// يمثل الملف الكامل للحصان
 export interface Horse {
   id: string;
-  number: string; // رقم الحصان
+  number: string;
   name: string;
+  rasan: string;
+  microchipNumber?: string;
+  gender: 'ذكر' | 'انثى' | 'مهر ذكر' | 'مهرة انثى';
   dateOfBirth: string;
-  breed: string; // النوع أو السلالة
+  breed: string;
   color: string;
   battalion: 'الكتيبة الاولى' | 'الكتيبة الثانية' | 'الكتيبة الثالثة' | 'نادي الفروسية';
   status: 'healthy' | 'monitoring' | 'sick';
@@ -55,20 +69,43 @@ export interface Horse {
     expectedDueDate: string;
     notes?: string;
   };
+  lactation?: {
+    foalId: string;
+    foalName: string;
+    startDate: string;
+    expectedWeaningDate: string;
+    notes?: string;
+  };
 }
 
-// يمثل إدخالاً واحداً في جدول التغذية
 export interface FeedingScheduleEntry {
   id:string;
   battalion: Horse['battalion'];
-  category: string; // Changed: Schedule is now a user-defined string category
+  category: string;
   time: string;
   feedDetails: string;
 }
 
-// يمثل قالب علاج جاهز
 export interface TreatmentProtocol {
   id: string;
   diagnosisName: string;
   treatmentTemplate: string;
+}
+
+export interface AppNotification {
+  id: string;
+  message: string;
+  type: 'horse' | 'clinic' | 'pharmacy' | 'vaccination' | 'system';
+  createdAt: string;
+  createdBy: string;
+}
+
+// أرشيف الإحصائيات الشهرية
+export interface MonthlyArchive {
+  id: string;
+  monthLabel: string; // مثال: "أكتوبر 2023"
+  battalion: string;
+  diagnoses: { name: string, count: number }[];
+  totalCases: number;
+  createdAt: string;
 }

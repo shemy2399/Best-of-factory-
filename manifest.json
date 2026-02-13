@@ -1,0 +1,22 @@
+
+{
+  "name": "نظام الخيالة - الطب البيطري",
+  "short_name": "خياله",
+  "start_url": ".",
+  "display": "standalone",
+  "background_color": "#1f2937",
+  "theme_color": "#1f2937",
+  "orientation": "portrait-primary",
+  "icons": [
+    {
+      "src": "https://cdn-icons-png.flaticon.com/512/2809/2809794.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "https://cdn-icons-png.flaticon.com/512/2809/2809794.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}

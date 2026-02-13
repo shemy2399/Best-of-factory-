@@ -1,3 +1,4 @@
+
 import React, { useState, useMemo } from 'react';
 import { FeedingScheduleEntry, Horse } from '../types';
 import { PlusIcon, PencilIcon, TrashIcon, XMarkIcon, FeedingIcon } from '../components/icons';
@@ -182,7 +183,8 @@ const FeedingPage: React.FC<FeedingPageProps> = ({
         return acc;
     }, {} as Record<string, FeedingScheduleEntry[]>);
 
-    Object.values(grouped).forEach(schedules => {
+    // FIX: Use type assertion on Object.values to ensure 'schedules' is recognized as an array
+    (Object.values(grouped) as FeedingScheduleEntry[][]).forEach(schedules => {
         schedules.sort((a, b) => a.time.localeCompare(b.time, undefined, { numeric: true }));
     });
 
@@ -239,7 +241,8 @@ const FeedingPage: React.FC<FeedingPageProps> = ({
       </div>
       
       {Object.keys(schedulesByCategory).length > 0 ? (
-        (Object.entries(schedulesByCategory)).sort((a,b) => a[0].localeCompare(b[0])).map(([category, schedules]) => (
+        // FIX: Use type assertion on Object.entries to ensure the resulting array is properly typed for sorting and mapping
+        (Object.entries(schedulesByCategory) as [string, FeedingScheduleEntry[]][]).sort((a,b) => a[0].localeCompare(b[0])).map(([category, schedules]) => (
           <div key={category} className="bg-gray-700 rounded-xl shadow-lg overflow-hidden">
             <div className="bg-gray-900/50 p-4 border-b border-gray-600">
                 <h2 className="text-xl font-bold text-amber-400">{category}</h2>

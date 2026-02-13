@@ -1,5 +1,7 @@
+
 import React, { useState, useMemo, useEffect } from 'react';
 import { Horse, Medication, MedicalRecordEntry, TreatmentProtocol } from '../types';
+// Removed non-existent CalendarIcon import
 import { PlusIcon, XMarkIcon, HorseIcon, PencilIcon, TrashIcon } from '../components/icons';
 import DateInput from '../components/DateInput';
 
@@ -356,10 +358,15 @@ const ConfirmDeleteModal: React.FC<{
 };
 
 const ClinicPage: React.FC<ClinicPageProps> = ({ horses, clinicLog, protocols, onAddEntry, onEditEntry, onDeleteEntry, globalBattalionFilter, setGlobalBattalionFilter }) => {
+  const [viewType, setViewType] = useState<'daily' | 'monthly' | 'yearly'>('daily');
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingEntry, setEditingEntry] = useState<ClinicLogEntry | null>(null);
   const [deletingEntry, setDeletingEntry] = useState<ClinicLogEntry | null>(null);
-  const [filterDate, setFilterDate] = useState<string>('');
+  
+  // Date Filters
+  const [selectedDate, setSelectedDate] = useState<string>(new Date().toISOString().split('T')[0]);
+  const [selectedMonth, setSelectedMonth] = useState<string>(String(new Date().getMonth() + 1));
+  const [selectedYear, setSelectedYear] = useState<string>(String(new Date().getFullYear()));
 
   const BATTALIONS: Exclude<Horse['battalion'], 'الكل'>[] = ['الكتيبة الاولى', 'الكتيبة الثانية', 'الكتيبة الثالثة', 'نادي الفروسية'];
   
@@ -373,12 +380,22 @@ const ClinicPage: React.FC<ClinicPageProps> = ({ horses, clinicLog, protocols, o
     const horseIdsInBattalion = new Set(horsesForSelectedBattalion.map(h => h.id));
     let logForBattalion = clinicLog.filter(entry => horseIdsInBattalion.has(entry.horseId));
 
-    if (filterDate) {
-      logForBattalion = logForBattalion.filter(entry => entry.date === filterDate);
+    if (viewType === 'daily') {
+        logForBattalion = logForBattalion.filter(entry => entry.date === selectedDate);
+    } else if (viewType === 'monthly') {
+        logForBattalion = logForBattalion.filter(entry => {
+            const d = new Date(entry.date);
+            return (d.getMonth() + 1) === parseInt(selectedMonth) && d.getFullYear() === parseInt(selectedYear);
+        });
+    } else if (viewType === 'yearly') {
+        logForBattalion = logForBattalion.filter(entry => {
+            const d = new Date(entry.date);
+            return d.getFullYear() === parseInt(selectedYear);
+        });
     }
     
-    return logForBattalion;
-  }, [clinicLog, horsesForSelectedBattalion, globalBattalionFilter, filterDate]);
+    return logForBattalion.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+  }, [clinicLog, horsesForSelectedBattalion, globalBattalionFilter, viewType, selectedDate, selectedMonth, selectedYear]);
 
   const getRecordStatusBadge = (status: MedicalRecordEntry['status']) => {
     switch (status) {
@@ -407,6 +424,16 @@ const ClinicPage: React.FC<ClinicPageProps> = ({ horses, clinicLog, protocols, o
     );
   }
 
+  const months = [
+    { name: 'يناير', value: '1' }, { name: 'فبراير', value: '2' }, { name: 'مارس', value: '3' },
+    { name: 'أبريل', value: '4' }, { name: 'مايو', value: '5' }, { name: 'يونيو', value: '6' },
+    { name: 'يوليو', value: '7' }, { name: 'أغسطس', value: '8' }, { name: 'سبتمبر', value: '9' },
+    { name: 'أكتوبر', value: '10' }, { name: 'نوفمبر', value: '11' }, { name: 'ديسمبر', value: '12' },
+  ];
+
+  const currentYear = new Date().getFullYear();
+  const years = Array.from({ length: 10 }, (_, i) => String(currentYear - i));
+
   return (
     <div className="space-y-6">
       {isModalOpen && <AddEntryModal horses={horsesForSelectedBattalion} protocols={protocols} onClose={() => setIsModalOpen(false)} onAddEntry={onAddEntry} />}
@@ -415,10 +442,10 @@ const ClinicPage: React.FC<ClinicPageProps> = ({ horses, clinicLog, protocols, o
 
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
-          <h1 className="text-3xl font-bold text-white">دفتر العيادة</h1>
+          <h1 className="text-3xl font-bold text-white">دفتر العيادة ({globalBattalionFilter})</h1>
           <p className="text-gray-400 mt-2">تسجيل الحالات اليومية ومتابعتها للكتيبة المحددة.</p>
         </div>
-        <div className="flex items-center gap-4 w-full sm:w-auto">
+        <div className="flex items-center gap-4 w-full sm:w-auto no-print">
           <button onClick={() => setIsModalOpen(true)} className="flex items-center justify-center w-full sm:w-auto px-4 py-2 bg-amber-500 text-white font-semibold rounded-lg hover:bg-amber-600 shadow-md">
             <PlusIcon className="w-5 h-5 ml-2" />
             تسجيل حالة جديدة
@@ -426,36 +453,86 @@ const ClinicPage: React.FC<ClinicPageProps> = ({ horses, clinicLog, protocols, o
         </div>
       </div>
 
-      <div className="bg-gray-700 p-4 rounded-xl shadow-lg flex items-center gap-4">
-        <label className="font-medium text-gray-300 flex-shrink-0">بحث بالتاريخ:</label>
-        <div className="w-full max-w-xs">
-           <DateInput value={filterDate} onChange={setFilterDate} inputClassName="p-2" />
+      {/* View Selector Tabs */}
+      <div className="flex border-b border-gray-700 no-print">
+        <button onClick={() => setViewType('daily')} className={`px-6 py-3 font-bold transition-all ${viewType === 'daily' ? 'text-amber-400 border-b-2 border-amber-400 bg-gray-700/30' : 'text-gray-400 hover:text-gray-200'}`}>سجل يومي</button>
+        <button onClick={() => setViewType('monthly')} className={`px-6 py-3 font-bold transition-all ${viewType === 'monthly' ? 'text-amber-400 border-b-2 border-amber-400 bg-gray-700/30' : 'text-gray-400 hover:text-gray-200'}`}>سجل شهري</button>
+        <button onClick={() => setViewType('yearly')} className={`px-6 py-3 font-bold transition-all ${viewType === 'yearly' ? 'text-amber-400 border-b-2 border-amber-400 bg-gray-700/30' : 'text-gray-400 hover:text-gray-200'}`}>سجل سنوي</button>
+      </div>
+
+      {/* Filters UI */}
+      <div className="bg-gray-700 p-4 rounded-xl shadow-lg flex flex-wrap items-center gap-6 no-print">
+        {viewType === 'daily' && (
+            <div className="flex items-center gap-3 w-full sm:w-auto">
+                <label className="font-medium text-gray-300 whitespace-nowrap">تاريخ اليوم:</label>
+                <div className="w-full sm:w-64">
+                    <DateInput value={selectedDate} onChange={setSelectedDate} inputClassName="p-2" />
+                </div>
+            </div>
+        )}
+        {viewType === 'monthly' && (
+            <div className="flex flex-wrap items-center gap-4">
+                <div className="flex items-center gap-2">
+                    <label className="text-gray-300">الشهر:</label>
+                    <select value={selectedMonth} onChange={e => setSelectedMonth(e.target.value)} className="p-2 bg-gray-800 border border-gray-600 rounded-lg text-white">
+                        {months.map(m => <option key={m.value} value={m.value}>{m.name}</option>)}
+                    </select>
+                </div>
+                <div className="flex items-center gap-2">
+                    <label className="text-gray-300">السنة:</label>
+                    <select value={selectedYear} onChange={e => setSelectedYear(e.target.value)} className="p-2 bg-gray-800 border border-gray-600 rounded-lg text-white">
+                        {years.map(y => <option key={y} value={y}>{y}</option>)}
+                    </select>
+                </div>
+            </div>
+        )}
+        {viewType === 'yearly' && (
+            <div className="flex items-center gap-3">
+                <label className="text-gray-300">اختر السنة:</label>
+                <select value={selectedYear} onChange={e => setSelectedYear(e.target.value)} className="p-2 bg-gray-800 border border-gray-600 rounded-lg text-white">
+                    {years.map(y => <option key={y} value={y}>{y}</option>)}
+                </select>
+            </div>
+        )}
+        
+        {/* Print Button for specific view */}
+        <div className="mr-auto">
+             <button onClick={() => window.print()} className="px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-500 flex items-center gap-2">
+                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"></path></svg>
+                 طباعة {viewType === 'daily' ? 'اليومي' : viewType === 'monthly' ? 'الشهري' : 'السنوي'}
+             </button>
         </div>
-        <button onClick={() => setFilterDate('')} className="px-4 py-2 bg-gray-600 text-gray-200 font-semibold rounded-lg hover:bg-gray-500" disabled={!filterDate}>مسح الفلتر</button>
       </div>
 
        <div className="bg-gray-700 rounded-xl shadow-lg overflow-hidden">
+        <div className="p-4 bg-gray-900/50 border-b border-gray-600 print:bg-white print:text-black print:border-black">
+            <h2 className="text-lg font-bold text-amber-400 print:text-black">
+                {viewType === 'daily' && `سجل يوم ${selectedDate}`}
+                {viewType === 'monthly' && `سجل شهر ${months.find(m => m.value === selectedMonth)?.name} ${selectedYear}`}
+                {viewType === 'yearly' && `سجل سنة ${selectedYear}`}
+            </h2>
+        </div>
         <div className="overflow-x-auto">
-            <table className="min-w-full divide-y divide-gray-600">
-            <thead className="bg-gray-900/50">
+            <table className="min-w-full divide-y divide-gray-600 print:divide-black">
+            <thead className="bg-gray-900/50 print:bg-gray-100">
                 <tr>
-                <th className="px-6 py-3 text-right text-xs font-medium text-gray-400 uppercase">التاريخ</th>
-                <th className="px-6 py-3 text-right text-xs font-medium text-gray-400 uppercase">اسم الحصان</th>
-                <th className="px-6 py-3 text-right text-xs font-medium text-gray-400 uppercase">التشخيص</th>
-                <th className="px-6 py-3 text-right text-xs font-medium text-gray-400 uppercase">الحالة</th>
-                <th className="px-6 py-3 text-right text-xs font-medium text-gray-400 uppercase">العلاج</th>
-                <th className="px-6 py-3 text-right text-xs font-medium text-gray-400 uppercase">الإجراءات</th>
+                <th className="px-6 py-3 text-right text-xs font-medium text-gray-400 uppercase print:text-black">التاريخ</th>
+                <th className="px-6 py-3 text-right text-xs font-medium text-gray-400 uppercase print:text-black">اسم الحصان</th>
+                <th className="px-6 py-3 text-right text-xs font-medium text-gray-400 uppercase print:text-black">التشخيص</th>
+                <th className="px-6 py-3 text-right text-xs font-medium text-gray-400 uppercase print:text-black">الحالة</th>
+                <th className="px-6 py-3 text-right text-xs font-medium text-gray-400 uppercase print:text-black">العلاج</th>
+                <th className="px-6 py-3 text-right text-xs font-medium text-gray-400 uppercase no-print">الإجراءات</th>
                 </tr>
             </thead>
-            <tbody className="divide-y divide-gray-600">
+            <tbody className="divide-y divide-gray-600 print:divide-black">
                 {filteredClinicLog.length > 0 ? filteredClinicLog.map((entry) => (
-                <tr key={entry.id} className="hover:bg-gray-600/50 transition-colors">
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-400">{entry.date}</td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-100">{entry.horseName}</td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-300">{entry.diagnosis}</td>
+                <tr key={entry.id} className="hover:bg-gray-600/50 transition-colors print:bg-white print:text-black">
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-400 print:text-black">{entry.date}</td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-100 print:text-black">{entry.horseName}</td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-300 print:text-black">{entry.diagnosis}</td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm">{getRecordStatusBadge(entry.status)}</td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-300">{entry.treatment || 'لا يوجد'}</td>
-                    <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium space-x-2 space-x-reverse">
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-300 print:text-black">{entry.treatment || 'لا يوجد'}</td>
+                    <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium space-x-2 space-x-reverse no-print">
                     <button onClick={() => setEditingEntry(entry)} className="text-gray-400 hover:text-gray-200 p-2 rounded-md hover:bg-gray-800/50" aria-label={`تعديل ${entry.horseName}`}><PencilIcon className="w-5 h-5"/></button>
                     <button onClick={() => setDeletingEntry(entry)} className="text-red-500 hover:text-red-400 p-2 rounded-md hover:bg-gray-800/50" aria-label={`حذف ${entry.horseName}`}><TrashIcon className="w-5 h-5"/></button>
                     </td>
@@ -463,7 +540,7 @@ const ClinicPage: React.FC<ClinicPageProps> = ({ horses, clinicLog, protocols, o
                 )) : (
                 <tr>
                     <td colSpan={6} className="text-center py-10 text-gray-400">
-                    {filterDate ? `لا توجد حالات مسجلة في تاريخ ${filterDate}.` : 'لا توجد حالات مسجلة لهذه الكتيبة.'}
+                    لا توجد حالات مسجلة للفترة المختارة.
                     </td>
                 </tr>
                 )}
