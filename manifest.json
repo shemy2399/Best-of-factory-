@@ -1,8 +1,7 @@
-
 {
   "name": "نظام الخيالة - الطب البيطري",
   "short_name": "خياله",
-  "start_url": ".",
+  "start_url": "/",
   "display": "standalone",
   "background_color": "#1f2937",
   "theme_color": "#1f2937",
@@ -18,5 +17,6 @@
       "sizes": "512x512",
       "type": "image/png"
     }
-  ]
+  ],
+  "scope": "/"
 }
