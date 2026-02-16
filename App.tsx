@@ -82,7 +82,19 @@ const App: React.FC = () => {
   const [securityTargetCode, setSecurityTargetCode] = useState<string>('');
 
   const [activePage, setActivePage] = useState<Page>('dashboard');
-  const [globalBattalionFilter, setGlobalBattalionFilter] = useState<Horse['battalion'] | 'الكل'>('الكل');
+  
+  // FIX: Initialize battalion filter based on current user restriction to prevent reset on refresh
+  const [globalBattalionFilter, setGlobalBattalionFilter] = useState<Horse['battalion'] | 'الكل'>(() => {
+      const stored = sessionStorage.getItem('currentUserData');
+      if (stored) {
+          const user = JSON.parse(stored) as AdminUser;
+          if (user.assignedBattalion && user.assignedBattalion !== 'الكل') {
+              return user.assignedBattalion;
+          }
+      }
+      return 'الكل';
+  });
+  
   const [horseSearchFilter, setHorseSearchFilter] = useState('');
   
   // Full Screen State
@@ -154,6 +166,8 @@ const App: React.FC = () => {
       // Apply Battalion Restrictions immediately
       if (user.assignedBattalion && user.assignedBattalion !== 'الكل') {
           setGlobalBattalionFilter(user.assignedBattalion);
+      } else {
+          setGlobalBattalionFilter('الكل');
       }
   };
 
