@@ -83,7 +83,6 @@ const App: React.FC = () => {
 
   const [activePage, setActivePage] = useState<Page>('dashboard');
   
-  // FIX: Initialize battalion filter based on current user restriction to prevent reset on refresh
   const [globalBattalionFilter, setGlobalBattalionFilter] = useState<Horse['battalion'] | 'الكل'>(() => {
       const stored = sessionStorage.getItem('currentUserData');
       if (stored) {
@@ -94,6 +93,22 @@ const App: React.FC = () => {
       }
       return 'الكل';
   });
+
+  // Sync Global Filter with User Permissions Live
+  useEffect(() => {
+      if (currentUser) {
+          const liveData = admins.find(a => a.id === currentUser.id);
+          if (liveData) {
+              const currentRestricted = liveData.assignedBattalion && liveData.assignedBattalion !== 'الكل';
+              if (currentRestricted && globalBattalionFilter !== liveData.assignedBattalion) {
+                  setGlobalBattalionFilter(liveData.assignedBattalion as any);
+                  // Update Session storage to persist on next refresh
+                  const updatedUser = { ...currentUser, assignedBattalion: liveData.assignedBattalion };
+                  sessionStorage.setItem('currentUserData', JSON.stringify(updatedUser));
+              }
+          }
+      }
+  }, [admins, currentUser, globalBattalionFilter]);
   
   const [horseSearchFilter, setHorseSearchFilter] = useState('');
   
@@ -274,7 +289,57 @@ const App: React.FC = () => {
                 return <HorsesPage horses={horses} vaccinations={vaccinations} onAddHorse={handleAddHorse} onEditHorse={handleEditHorse} onDeleteHorse={handleDeleteHorse} globalBattalionFilter={globalBattalionFilter} initialSearchTerm={horseSearchFilter} />;
               
               case 'clinic': 
-                return <ClinicPage horses={horses} medications={medications} clinicLog={clinicLog} protocols={protocols} onAddEntry={async (entry, hId, hName, addHist) => { const ref = await addDoc(collection(db, "clinicLog"), { ...entry, horseName: hName, horseId: hId }); handleCreateNotification(`حالة عيادة: ${hName}`, 'clinic'); if(addHist) { const target = horses.find(h => h.id === hId); if(target) updateDoc(doc(db, "horses", hId), { status: entry.status === 'recovered' ? 'healthy' : entry.status, medicalHistory: [{id: ref.id, ...entry}, ...target.medicalHistory] }); } }} onEditEntry={async (upd) => { const {id, horseId, horseName, ...data} = upd; await updateDoc(doc(db, "clinicLog", id), data); }} onDeleteEntry={async (id) => deleteDoc(doc(db, "clinicLog", id))} globalBattalionFilter={globalBattalionFilter} setGlobalBattalionFilter={setGlobalBattalionFilter} />;
+                return <ClinicPage 
+                    horses={horses} 
+                    medications={medications} 
+                    clinicLog={clinicLog} 
+                    protocols={protocols} 
+                    onAddEntry={async (entry, hId, hName, addHist) => { 
+                        const ref = await addDoc(collection(db, "clinicLog"), { ...entry, horseName: hName, horseId: hId }); 
+                        handleCreateNotification(`حالة عيادة: ${hName}`, 'clinic'); 
+                        if(addHist) { 
+                            const target = horses.find(h => h.id === hId); 
+                            if(target) updateDoc(doc(db, "horses", hId), { 
+                                status: entry.status === 'recovered' ? 'healthy' : entry.status, 
+                                medicalHistory: [{id: ref.id, ...entry}, ...(target.medicalHistory || [])] 
+                            }); 
+                        } 
+                    }} 
+                    onEditEntry={async (upd, addHist) => { 
+                        const {id, horseId, horseName, ...data} = upd; 
+                        await updateDoc(doc(db, "clinicLog", id), data); 
+                        
+                        // Sync with Horse History if needed
+                        const targetHorse = horses.find(h => h.id === horseId);
+                        if (targetHorse) {
+                            let newHistory = [...(targetHorse.medicalHistory || [])];
+                            const historyIdx = newHistory.findIndex(m => m.id === id);
+                            
+                            if (addHist) {
+                                const histEntry = { id, ...data };
+                                if (historyIdx > -1) newHistory[historyIdx] = histEntry;
+                                else newHistory = [histEntry, ...newHistory];
+                            } else {
+                                if (historyIdx > -1) newHistory.splice(historyIdx, 1);
+                            }
+                            
+                            await updateDoc(doc(db, "horses", horseId), { medicalHistory: newHistory });
+                        }
+                    }} 
+                    onDeleteEntry={async (id, horseId) => {
+                        await deleteDoc(doc(db, "clinicLog", id));
+                        // Clean up from horse history if it exists
+                        const targetHorse = horses.find(h => h.id === horseId);
+                        if (targetHorse && targetHorse.medicalHistory) {
+                            const newHist = targetHorse.medicalHistory.filter(m => m.id !== id);
+                            if (newHist.length !== targetHorse.medicalHistory.length) {
+                                await updateDoc(doc(db, "horses", horseId), { medicalHistory: newHist });
+                            }
+                        }
+                    }} 
+                    globalBattalionFilter={globalBattalionFilter} 
+                    setGlobalBattalionFilter={setGlobalBattalionFilter} 
+                />;
               
               case 'pharmacy': 
                 return <PharmacyPage medications={medications} onAddMedication={async (m) => addDoc(collection(db, "medications"), {...m, createdAt: new Date().toISOString()})} onEditMedication={async (m) => { const {id, ...data} = m; updateDoc(doc(db, "medications", id), data); }} onDeleteMedication={async (id) => deleteDoc(doc(db, "medications", id))} globalBattalionFilter={globalBattalionFilter} setGlobalBattalionFilter={setGlobalBattalionFilter} />;

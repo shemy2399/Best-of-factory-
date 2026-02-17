@@ -1,8 +1,7 @@
 
 import React, { useState, useMemo, useEffect } from 'react';
 import { Horse, Medication, MedicalRecordEntry, TreatmentProtocol } from '../types';
-// Removed non-existent CalendarIcon import
-import { PlusIcon, XMarkIcon, HorseIcon, PencilIcon, TrashIcon } from '../components/icons';
+import { PlusIcon, XMarkIcon, HorseIcon, PencilIcon, TrashIcon, CheckIcon } from '../components/icons';
 import DateInput from '../components/DateInput';
 
 type ClinicLogEntry = { horseName: string; horseId: string } & MedicalRecordEntry;
@@ -13,7 +12,7 @@ interface ClinicPageProps {
   clinicLog: ClinicLogEntry[];
   protocols: TreatmentProtocol[];
   onAddEntry: (entry: Omit<MedicalRecordEntry, 'id'>, horseId: string, horseName: string, addToHistory: boolean) => void;
-  onEditEntry: (entry: ClinicLogEntry) => void;
+  onEditEntry: (entry: ClinicLogEntry, addToHistory: boolean) => void;
   onDeleteEntry: (entryId: string, horseId: string) => void;
   globalBattalionFilter: Horse['battalion'] | 'الكل';
   setGlobalBattalionFilter: (battalion: Horse['battalion'] | 'الكل') => void;
@@ -103,18 +102,21 @@ const AddEntryModal: React.FC<{
     };
     
     return (
-        <div className="fixed inset-0 bg-black bg-opacity-75 flex justify-center items-center z-50">
-            <div className="bg-gray-800 rounded-xl shadow-2xl p-8 w-full max-w-2xl max-h-[90vh] overflow-y-auto border border-gray-700">
+        <div className="fixed inset-0 bg-black/80 flex justify-center items-center z-50 p-4 backdrop-blur-sm">
+            <div className="bg-gray-800 rounded-3xl shadow-2xl p-8 w-full max-w-2xl max-h-[90vh] overflow-y-auto border border-gray-700 custom-scrollbar">
                 <div className="flex justify-between items-center mb-6">
-                    <h2 className="text-2xl font-bold text-white">تسجيل حالة جديدة</h2>
-                    <button onClick={onClose} className="text-gray-400 hover:text-gray-200">
+                    <h2 className="text-2xl font-black text-white flex items-center gap-3">
+                        <HorseIcon className="w-8 h-8 text-amber-500" />
+                        تسجيل حالة جديدة
+                    </h2>
+                    <button onClick={onClose} className="text-gray-400 hover:text-white transition-colors">
                         <XMarkIcon className="w-6 h-6" />
                     </button>
                 </div>
-                <form onSubmit={handleSubmit} className="space-y-4">
+                <form onSubmit={handleSubmit} className="space-y-6">
                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div className="relative">
-                           <label className="block mb-2 font-medium text-gray-300">اختر الحصان</label>
+                           <label className="block mb-2 font-bold text-gray-400 text-sm">اختر الحصان</label>
                            <input 
                              type="text"
                              value={horseSearch}
@@ -126,38 +128,40 @@ const AddEntryModal: React.FC<{
                              onFocus={() => setShowHorseList(true)}
                              onBlur={() => setTimeout(() => setShowHorseList(false), 200)}
                              placeholder="ابحث بالاسم أو الرقم..."
-                             className="w-full p-3 bg-gray-700 border border-gray-600 rounded-lg text-gray-200"
+                             className="w-full p-4 bg-gray-900 border border-gray-700 rounded-xl text-white font-bold focus:border-amber-500 outline-none transition-all shadow-inner"
                              required={!selectedHorseId}
                            />
                            {showHorseList && (
-                                <ul className="absolute z-20 w-full bg-gray-900 border border-gray-600 rounded-lg mt-1 max-h-60 overflow-y-auto shadow-lg">
+                                <ul className="absolute z-20 w-full bg-gray-900 border border-gray-700 rounded-xl mt-1 max-h-60 overflow-y-auto shadow-2xl">
                                     {filteredHorses.length > 0 ? filteredHorses.map(h => (
                                         <li 
                                             key={h.id} 
                                             onMouseDown={() => handleSelectHorse(h)}
-                                            className="p-3 hover:bg-amber-500/20 cursor-pointer text-gray-200"
+                                            className="p-4 hover:bg-amber-500/10 cursor-pointer text-gray-200 border-b border-gray-800 last:border-0"
                                         >
-                                            {h.name} ({h.number})
+                                            <div className="font-bold">{h.name}</div>
+                                            <div className="text-xs text-gray-500">رقم: {h.number} | {h.battalion}</div>
                                         </li>
                                     )) : (
-                                        <li className="p-3 text-gray-400">لا توجد نتائج</li>
+                                        <li className="p-4 text-gray-500 text-center">لا توجد نتائج</li>
                                     )}
                                 </ul>
                            )}
                         </div>
                          <div>
-                            <label className="block mb-2 font-medium text-gray-400">الكتيبة</label>
-                            <input value={selectedHorse?.battalion || '...'} className="w-full p-3 border border-gray-600 rounded-lg bg-gray-900/50 text-gray-300" readOnly />
+                            <label className="block mb-2 font-bold text-gray-400 text-sm">الكتيبة</label>
+                            <input value={selectedHorse?.battalion || 'يتم التحديد تلقائياً...'} className="w-full p-4 border border-gray-700 rounded-xl bg-gray-900/50 text-gray-500 font-bold" readOnly />
                         </div>
                     </div>
+
                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                          <div>
-                            <label className="block mb-2 font-medium text-gray-300">تاريخ دخول الحالة</label>
+                            <label className="block mb-2 font-bold text-gray-400 text-sm">تاريخ دخول الحالة</label>
                             <DateInput value={date} onChange={setDate} required />
                         </div>
                         <div>
-                           <label className="block mb-2 font-medium text-gray-300">حالة الحصان</label>
-                           <select value={status} onChange={e => setStatus(e.target.value as MedicalRecordEntry['status'])} className="w-full p-3 bg-gray-700 border border-gray-600 rounded-lg" required>
+                           <label className="block mb-2 font-bold text-gray-400 text-sm">حالة الحصان</label>
+                           <select value={status} onChange={e => setStatus(e.target.value as MedicalRecordEntry['status'])} className="w-full p-4 bg-gray-900 border border-gray-700 rounded-xl text-white font-bold outline-none focus:border-amber-500 transition-all" required>
                                 <option value="sick">مريض</option>
                                 <option value="monitoring">متابعة</option>
                                 <option value="recovered">شفاء</option>
@@ -165,52 +169,59 @@ const AddEntryModal: React.FC<{
                            </select>
                         </div>
                     </div>
+
                     {status === 'recovered' && (
-                        <div>
-                            <label className="block mb-2 font-medium text-gray-300">تاريخ الشفاء</label>
+                        <div className="animate-fade-in">
+                            <label className="block mb-2 font-bold text-blue-400 text-sm">تاريخ الشفاء</label>
                             <DateInput value={recoveryDate} onChange={setRecoveryDate} required />
                         </div>
                     )}
+
                     <div className="relative">
-                        <label className="block mb-2 font-medium text-gray-300">التشخيص</label>
-                        <textarea value={diagnosis} onChange={e => setDiagnosis(e.target.value)} placeholder="مثال: عرج، مغص، جرح قطعي..." rows={2} className="w-full p-3 bg-gray-700 border border-gray-600 rounded-lg" required></textarea>
+                        <label className="block mb-2 font-bold text-gray-400 text-sm">التشخيص</label>
+                        <textarea value={diagnosis} onChange={e => setDiagnosis(e.target.value)} placeholder="اكتب التشخيص هنا..." rows={2} className="w-full p-4 bg-gray-900 border border-gray-700 rounded-xl text-white font-bold focus:border-amber-500 outline-none transition-all shadow-inner" required></textarea>
                          {suggestedProtocols.length > 0 && (
-                            <ul className="absolute z-10 w-full bg-gray-900 border border-gray-600 rounded-lg mt-1 max-h-40 overflow-y-auto shadow-lg">
+                            <ul className="absolute z-10 w-full bg-gray-900 border border-gray-700 rounded-xl mt-1 max-h-40 overflow-y-auto shadow-2xl">
                                 {suggestedProtocols.map(p => (
-                                    <li key={p.id} onMouseDown={() => handleApplyProtocol(p)} className="p-3 hover:bg-amber-500/20 cursor-pointer text-gray-200">
-                                        تطبيق بروتوكول: <span className="font-bold">{p.diagnosisName}</span>
+                                    <li key={p.id} onMouseDown={() => handleApplyProtocol(p)} className="p-4 hover:bg-amber-500/10 cursor-pointer text-gray-200 border-b border-gray-800 last:border-0">
+                                        تطبيق بروتوكول: <span className="font-bold text-amber-500">{p.diagnosisName}</span>
                                     </li>
                                 ))}
                             </ul>
                         )}
                     </div>
+
                     <div>
-                        <label className="block mb-2 font-medium text-gray-300">العلاج</label>
-                        <textarea value={treatment} onChange={e => setTreatment(e.target.value)} placeholder="اكتب العلاج الموصوف والجرعات..." rows={3} className="w-full p-3 bg-gray-700 border border-gray-600 rounded-lg"></textarea>
+                        <label className="block mb-2 font-bold text-gray-400 text-sm">العلاج الموصوف</label>
+                        <textarea value={treatment} onChange={e => setTreatment(e.target.value)} placeholder="الأدوية والجرعات..." rows={3} className="w-full p-4 bg-gray-900 border border-gray-700 rounded-xl text-white font-bold focus:border-amber-500 outline-none transition-all shadow-inner"></textarea>
                     </div>
-                    <div>
-                        <label className="block mb-2 font-medium text-gray-300">التوصيات</label>
-                        <textarea value={notes} onChange={e => setNotes(e.target.value)} placeholder="مثال: راحة لمدة 3 أيام، متابعة يومية..." rows={3} className="w-full p-3 bg-gray-700 border border-gray-600 rounded-lg"></textarea>
-                    </div>
-                     <div className="p-4 bg-gray-900/50 rounded-lg space-y-4">
-                        <h4 className="font-bold text-amber-400">إضافة متابعة (اختياري)</h4>
+
+                    <div className="bg-gray-900/50 p-6 rounded-2xl space-y-4 border border-gray-700/50">
+                        <h4 className="font-black text-amber-500 text-xs uppercase tracking-widest">متابعة لاحقة (اختياري)</h4>
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                             <div>
-                                <label className="block mb-2 text-sm font-medium text-gray-300">تاريخ المتابعة</label>
-                                <DateInput value={followUpDate} onChange={setFollowUpDate} inputClassName="p-2" />
+                                <label className="block mb-2 text-xs font-bold text-gray-500 uppercase">موعد المتابعة القادم</label>
+                                <DateInput value={followUpDate} onChange={setFollowUpDate} inputClassName="p-3" />
                             </div>
                             <div className="md:col-span-2">
-                                <label className="block mb-2 text-sm font-medium text-gray-300">ملاحظات المتابعة</label>
-                                <input value={followUpNotes} onChange={e => setFollowUpNotes(e.target.value)} placeholder="مثال: إعادة فحص، إزالة الغرز..." className="w-full p-2 bg-gray-700 border border-gray-600 rounded-lg"/>
+                                <label className="block mb-2 text-xs font-bold text-gray-500 uppercase">ملاحظات للمراجعة</label>
+                                <input value={followUpNotes} onChange={e => setFollowUpNotes(e.target.value)} placeholder="إعادة فحص، غيار جروح..." className="w-full p-3 bg-gray-800 border border-gray-700 rounded-xl text-white shadow-inner"/>
                             </div>
                         </div>
                     </div>
-                     <div className="flex items-center pt-2">
-                        <input id="addToHistory" type="checkbox" checked={addToMedicalHistory} onChange={e => setAddToMedicalHistory(e.target.checked)} className="w-4 h-4 text-amber-500 bg-gray-600 border-gray-500 rounded"/>
-                        <label htmlFor="addToHistory" className="mr-2 text-sm font-medium text-gray-200">إضافة إلى السجل الطبي الدائم للحصان</label>
+
+                    <div className="flex items-center gap-3 p-4 bg-amber-500/5 border border-amber-500/10 rounded-2xl">
+                        <label className="relative flex items-center cursor-pointer">
+                            <input type="checkbox" checked={addToMedicalHistory} onChange={e => setAddToMedicalHistory(e.target.checked)} className="sr-only peer" />
+                            <div className="w-11 h-6 bg-gray-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-amber-500"></div>
+                        </label>
+                        <span className="text-sm font-bold text-gray-200">إضافة إلى السجل الطبي الدائم للحصان</span>
                     </div>
-                    <div className="flex justify-end pt-4">
-                        <button type="submit" className="px-6 py-2 bg-amber-500 text-white font-semibold rounded-lg hover:bg-amber-600">تسجيل الحالة</button>
+
+                    <div className="pt-4">
+                        <button type="submit" className="w-full py-4 bg-amber-500 hover:bg-amber-600 text-white font-black rounded-2xl shadow-lg shadow-amber-500/20 transition-all text-lg">
+                            تسجيل الحالة في الدفتر
+                        </button>
                     </div>
                 </form>
             </div>
@@ -220,14 +231,20 @@ const AddEntryModal: React.FC<{
 
 const EditEntryModal: React.FC<{
   entry: ClinicLogEntry;
+  horses: Horse[];
   onClose: () => void;
-  onEditEntry: (entry: ClinicLogEntry) => void;
-}> = ({ entry, onClose, onEditEntry }) => {
+  onEditEntry: (entry: ClinicLogEntry, addToHistory: boolean) => void;
+}> = ({ entry, horses, onClose, onEditEntry }) => {
     const [formData, setFormData] = useState({ 
         ...entry, 
         recoveryDate: entry.recoveryDate || '',
         followUpDate: entry.followUpDate || '',
         followUpNotes: entry.followUpNotes || ''
+    });
+
+    const [addToMedicalHistory, setAddToMedicalHistory] = useState(() => {
+        const horse = horses.find(h => h.id === entry.horseId);
+        return horse?.medicalHistory?.some(m => m.id === entry.id) || false;
     });
 
     const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
@@ -253,30 +270,33 @@ const EditEntryModal: React.FC<{
         if (!dataToSubmit.followUpNotes) delete dataToSubmit.followUpNotes;
         if (!dataToSubmit.recoveryDate) delete dataToSubmit.recoveryDate;
 
-        onEditEntry(dataToSubmit);
+        onEditEntry(dataToSubmit, addToMedicalHistory);
         onClose();
     };
 
     return (
-        <div className="fixed inset-0 bg-black bg-opacity-75 flex justify-center items-center z-50">
-            <div className="bg-gray-800 rounded-xl shadow-2xl p-8 w-full max-w-2xl max-h-[90vh] overflow-y-auto border border-gray-700">
+        <div className="fixed inset-0 bg-black/80 flex justify-center items-center z-50 p-4 backdrop-blur-sm">
+            <div className="bg-gray-800 rounded-3xl shadow-2xl p-8 w-full max-w-2xl max-h-[90vh] overflow-y-auto border border-gray-700 custom-scrollbar">
                 <div className="flex justify-between items-center mb-6">
-                    <h2 className="text-2xl font-bold text-white">تعديل سجل حالة</h2>
-                    <button onClick={onClose} className="text-gray-400 hover:text-gray-200"><XMarkIcon className="w-6 h-6" /></button>
+                    <h2 className="text-2xl font-black text-white">تعديل سجل الحالة</h2>
+                    <button onClick={onClose} className="text-gray-400 hover:text-white transition-colors">
+                        <XMarkIcon className="w-6 h-6" />
+                    </button>
                 </div>
-                <form onSubmit={handleSubmit} className="space-y-4">
+                <form onSubmit={handleSubmit} className="space-y-6">
                      <div>
-                        <label className="block mb-2 font-medium text-gray-400">الحصان</label>
-                        <input value={formData.horseName} className="w-full p-3 border border-gray-600 rounded-lg bg-gray-900/50 text-gray-300" readOnly />
+                        <label className="block mb-2 font-bold text-gray-400 text-sm">الحصان</label>
+                        <input value={formData.horseName} className="w-full p-4 border border-gray-700 rounded-xl bg-gray-900/50 text-gray-500 font-bold" readOnly />
                     </div>
+
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                          <div>
-                            <label className="block mb-2 font-medium text-gray-300">تاريخ دخول الحالة</label>
+                            <label className="block mb-2 font-bold text-gray-400 text-sm">تاريخ دخول الحالة</label>
                             <DateInput value={formData.date} onChange={value => handleChange({target:{name:'date', value}} as any)} required />
                         </div>
                         <div>
-                           <label className="block mb-2 font-medium text-gray-300">حالة الحصان</label>
-                           <select name="status" value={formData.status} onChange={handleChange} className="w-full p-3 bg-gray-700 border border-gray-600 rounded-lg" required>
+                           <label className="block mb-2 font-bold text-gray-400 text-sm">حالة الحصان</label>
+                           <select name="status" value={formData.status} onChange={handleChange} className="w-full p-4 bg-gray-900 border border-gray-700 rounded-xl text-white font-bold outline-none focus:border-amber-500 transition-all" required>
                                 <option value="sick">مريض</option>
                                 <option value="monitoring">متابعة</option>
                                 <option value="recovered">شفاء</option>
@@ -284,39 +304,50 @@ const EditEntryModal: React.FC<{
                            </select>
                         </div>
                     </div>
+
                     {formData.status === 'recovered' && (
-                        <div>
-                            <label className="block mb-2 font-medium text-gray-300">تاريخ الشفاء</label>
+                        <div className="animate-fade-in">
+                            <label className="block mb-2 font-bold text-blue-400 text-sm">تاريخ الشفاء</label>
                             <DateInput value={formData.recoveryDate} onChange={value => handleChange({target:{name:'recoveryDate', value}} as any)} required />
                         </div>
                     )}
+
                     <div>
-                        <label className="block mb-2 font-medium text-gray-300">التشخيص</label>
-                        <textarea name="diagnosis" value={formData.diagnosis} onChange={handleChange} rows={2} className="w-full p-3 bg-gray-700 border border-gray-600 rounded-lg" required></textarea>
+                        <label className="block mb-2 font-bold text-gray-400 text-sm">التشخيص</label>
+                        <textarea name="diagnosis" value={formData.diagnosis} onChange={handleChange} rows={2} className="w-full p-4 bg-gray-900 border border-gray-700 rounded-xl text-white font-bold focus:border-amber-500 outline-none transition-all shadow-inner" required></textarea>
                     </div>
+
                     <div>
-                        <label className="block mb-2 font-medium text-gray-300">العلاج</label>
-                        <textarea name="treatment" value={formData.treatment} onChange={handleChange} rows={3} className="w-full p-3 bg-gray-700 border border-gray-600 rounded-lg"></textarea>
+                        <label className="block mb-2 font-bold text-gray-400 text-sm">العلاج</label>
+                        <textarea name="treatment" value={formData.treatment} onChange={handleChange} rows={3} className="w-full p-4 bg-gray-900 border border-gray-700 rounded-xl text-white font-bold focus:border-amber-500 outline-none transition-all shadow-inner"></textarea>
                     </div>
-                    <div>
-                        <label className="block mb-2 font-medium text-gray-300">التوصيات</label>
-                        <textarea name="notes" value={formData.notes} onChange={handleChange} rows={3} className="w-full p-3 bg-gray-700 border border-gray-600 rounded-lg"></textarea>
-                    </div>
-                    <div className="p-4 bg-gray-900/50 rounded-lg space-y-4">
-                        <h4 className="font-bold text-amber-400">تعديل المتابعة</h4>
+
+                    <div className="bg-gray-900/50 p-6 rounded-2xl space-y-4 border border-gray-700/50">
+                        <h4 className="font-black text-amber-500 text-xs uppercase tracking-widest">تحديث المتابعة</h4>
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                             <div>
-                                <label className="block mb-2 text-sm font-medium text-gray-300">تاريخ المتابعة</label>
-                                <DateInput value={formData.followUpDate} onChange={value => handleChange({target:{name:'followUpDate', value}} as any)} inputClassName="p-2"/>
+                                <label className="block mb-2 text-xs font-bold text-gray-500 uppercase">تاريخ المتابعة</label>
+                                <DateInput value={formData.followUpDate} onChange={value => handleChange({target:{name:'followUpDate', value}} as any)} inputClassName="p-3"/>
                             </div>
                             <div className="md:col-span-2">
-                                <label className="block mb-2 text-sm font-medium text-gray-300">ملاحظات المتابعة</label>
-                                <input name="followUpNotes" value={formData.followUpNotes} onChange={handleChange} className="w-full p-2 bg-gray-700 border border-gray-600 rounded-lg"/>
+                                <label className="block mb-2 text-xs font-bold text-gray-500 uppercase">ملاحظات المتابعة</label>
+                                <input name="followUpNotes" value={formData.followUpNotes} onChange={handleChange} className="w-full p-3 bg-gray-800 border border-gray-700 rounded-xl text-white shadow-inner"/>
                             </div>
                         </div>
                     </div>
-                    <div className="flex justify-end pt-4">
-                        <button type="submit" className="px-6 py-2 bg-amber-500 text-white font-semibold rounded-lg hover:bg-amber-600">حفظ التعديلات</button>
+
+                    <div className="flex items-center gap-3 p-4 bg-amber-500/5 border border-amber-500/10 rounded-2xl">
+                        <label className="relative flex items-center cursor-pointer">
+                            <input type="checkbox" checked={addToMedicalHistory} onChange={e => setAddToMedicalHistory(e.target.checked)} className="sr-only peer" />
+                            <div className="w-11 h-6 bg-gray-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-amber-500"></div>
+                        </label>
+                        <span className="text-sm font-bold text-gray-200">الإضافة للسجل الطبي الدائم للحصان</span>
+                    </div>
+
+                    <div className="pt-4">
+                        <button type="submit" className="w-full py-4 bg-blue-600 hover:bg-blue-700 text-white font-black rounded-2xl shadow-lg transition-all text-lg">
+                            حفظ التعديلات
+                        </button>
                     </div>
                 </form>
             </div>
@@ -330,26 +361,27 @@ const ConfirmDeleteModal: React.FC<{
   onConfirm: (entryId: string, horseId: string) => void;
 }> = ({ entry, onClose, onConfirm }) => {
     return (
-        <div className="fixed inset-0 bg-black bg-opacity-75 flex justify-center items-center z-50">
-            <div className="bg-gray-800 rounded-xl shadow-2xl p-8 w-full max-w-md text-center border border-gray-700">
-                <div className="mx-auto flex items-center justify-center h-12 w-12 rounded-full bg-red-500/20">
-                    <TrashIcon className="h-6 w-6 text-red-400" />
+        <div className="fixed inset-0 bg-black/85 flex justify-center items-center z-50 p-4 backdrop-blur-md">
+            <div className="bg-gray-800 rounded-3xl shadow-2xl p-10 w-full max-w-md text-center border border-gray-700">
+                <div className="mx-auto flex items-center justify-center h-20 w-20 rounded-full bg-red-500/10 mb-6">
+                    <TrashIcon className="h-10 w-10 text-red-500" />
                 </div>
-                <h3 className="text-xl font-bold text-gray-100 mt-5">تأكيد الحذف</h3>
-                <p className="text-gray-400 mt-2">
-                    هل أنت متأكد من حذف سجل حالة <span className="font-bold text-gray-200">{entry.horseName}</span> بتاريخ <span className="font-bold text-gray-200">{entry.date}</span>؟<br/>
-                    لا يمكن التراجع عن هذا الإجراء.
+                <h3 className="text-2xl font-black text-gray-100 mb-2">تأكيد حذف السجل</h3>
+                <p className="text-gray-400 text-sm leading-relaxed">
+                    سيتم حذف سجل حالة <span className="font-bold text-white">"{entry.horseName}"</span> نهائياً.
+                    <br/>
+                    <span className="text-red-400/80 italic">ملاحظة: إذا كان السجل مضافاً لملف الحصان الدائم سيتم حذفه من هناك أيضاً.</span>
                 </p>
-                <div className="mt-8 flex justify-center gap-4">
+                <div className="mt-10 flex gap-4">
                      <button
                         type="button"
                         onClick={() => { onConfirm(entry.id, entry.horseId); onClose(); }}
-                        className="px-8 py-2 bg-red-600 text-white font-semibold rounded-lg hover:bg-red-700"
+                        className="flex-1 py-4 bg-red-600 text-white font-bold rounded-2xl hover:bg-red-700 transition-all"
                     >
-                        نعم، قم بالحذف
+                        حذف نهائي
                     </button>
-                    <button type="button" onClick={onClose} className="px-8 py-2 bg-gray-600 text-gray-100 font-semibold rounded-lg hover:bg-gray-500">
-                        إلغاء
+                    <button type="button" onClick={onClose} className="flex-1 py-4 bg-gray-700 text-gray-300 font-bold rounded-2xl hover:bg-gray-600 transition-all">
+                        تراجع
                     </button>
                 </div>
             </div>
@@ -399,24 +431,26 @@ const ClinicPage: React.FC<ClinicPageProps> = ({ horses, clinicLog, protocols, o
 
   const getRecordStatusBadge = (status: MedicalRecordEntry['status']) => {
     switch (status) {
-        case 'healthy': return <span className="px-2 py-0.5 text-xs font-medium text-green-300 bg-green-500/20 rounded-full">سليم</span>;
-        case 'monitoring': return <span className="px-2 py-0.5 text-xs font-medium text-yellow-300 bg-yellow-500/20 rounded-full">متابعة</span>;
-        case 'sick': return <span className="px-2 py-0.5 text-xs font-medium text-red-300 bg-red-500/20 rounded-full">مريض</span>;
-        case 'recovered': return <span className="px-2 py-0.5 text-xs font-medium text-blue-300 bg-blue-500/20 rounded-full">شفاء</span>;
+        case 'healthy': return <span className="px-2 py-0.5 text-[10px] font-bold text-green-400 bg-green-500/10 border border-green-500/20 rounded-md">سليم</span>;
+        case 'monitoring': return <span className="px-2 py-0.5 text-[10px] font-bold text-amber-400 bg-amber-500/10 border border-amber-500/20 rounded-md">متابعة</span>;
+        case 'sick': return <span className="px-2 py-0.5 text-[10px] font-bold text-red-400 bg-red-500/10 border border-red-500/20 rounded-md animate-pulse">مريض</span>;
+        case 'recovered': return <span className="px-2 py-0.5 text-[10px] font-bold text-blue-400 bg-blue-500/10 border border-blue-500/20 rounded-md">شفاء</span>;
         default: return null;
     }
   };
 
   if (globalBattalionFilter === 'الكل') {
     return (
-      <div className="text-center">
-        <h1 className="text-3xl font-bold text-white mb-4">دفتر العيادة اليومي</h1>
-        <p className="text-gray-400 mb-10 text-lg">يرجى تحديد كتيبة من الشريط العلوي لعرض دفترها.</p>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+      <div className="text-center py-20 animate-fade-in">
+        <h1 className="text-4xl font-black text-white mb-6">دفتر العيادة اليومي</h1>
+        <p className="text-gray-400 mb-12 text-lg">يرجى تحديد كتيبة من الشريط العلوي لعرض وإدارة سجلات الحالات الخاصة بها.</p>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8 px-4">
           {BATTALIONS.map(battalion => (
-            <button key={battalion} onClick={() => setGlobalBattalionFilter(battalion)} className="p-8 bg-gray-700 rounded-xl shadow-lg hover:shadow-amber-500/10 hover:bg-gray-600 transition-all duration-300 transform hover:-translate-y-1">
-              <HorseIcon className="w-16 h-16 mx-auto text-amber-400 mb-4"/>
-              <h2 className="text-xl font-bold text-white">{battalion}</h2>
+            <button key={battalion} onClick={() => setGlobalBattalionFilter(battalion)} className="group p-10 bg-gray-800 rounded-[2rem] shadow-xl hover:shadow-amber-500/10 hover:bg-gray-700 transition-all duration-500 transform hover:-translate-y-2 border border-gray-700 hover:border-amber-500/30">
+              <div className="w-20 h-20 bg-gray-900 rounded-2xl flex items-center justify-center mx-auto mb-6 group-hover:scale-110 transition-transform">
+                <HorseIcon className="w-12 h-12 text-amber-400"/>
+              </div>
+              <h2 className="text-xl font-black text-white">{battalion}</h2>
             </button>
           ))}
         </div>
@@ -435,52 +469,53 @@ const ClinicPage: React.FC<ClinicPageProps> = ({ horses, clinicLog, protocols, o
   const years = Array.from({ length: 10 }, (_, i) => String(currentYear - i));
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-8 animate-fade-in pb-20">
       {isModalOpen && <AddEntryModal horses={horsesForSelectedBattalion} protocols={protocols} onClose={() => setIsModalOpen(false)} onAddEntry={onAddEntry} />}
-      {editingEntry && <EditEntryModal entry={editingEntry} onClose={() => setEditingEntry(null)} onEditEntry={onEditEntry} />}
+      {editingEntry && <EditEntryModal entry={editingEntry} horses={horses} onClose={() => setEditingEntry(null)} onEditEntry={onEditEntry} />}
       {deletingEntry && <ConfirmDeleteModal entry={deletingEntry} onClose={() => setDeletingEntry(null)} onConfirm={onDeleteEntry} />}
 
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-6">
         <div>
-          <h1 className="text-3xl font-bold text-white">دفتر العيادة ({globalBattalionFilter})</h1>
-          <p className="text-gray-400 mt-2">تسجيل الحالات اليومية ومتابعتها للكتيبة المحددة.</p>
+          <h1 className="text-3xl font-black text-white flex items-center gap-3">
+              <span className="w-2 h-10 bg-amber-500 rounded-full"></span>
+              دفتر العيادة ({globalBattalionFilter})
+          </h1>
+          <p className="text-gray-400 mt-2 font-medium">إدارة ومتابعة الحالات الطبية للكتيبة الحالية.</p>
         </div>
-        <div className="flex items-center gap-4 w-full sm:w-auto no-print">
-          <button onClick={() => setIsModalOpen(true)} className="flex items-center justify-center w-full sm:w-auto px-4 py-2 bg-amber-500 text-white font-semibold rounded-lg hover:bg-amber-600 shadow-md">
+        <button onClick={() => setIsModalOpen(true)} className="flex items-center justify-center w-full sm:w-auto px-8 py-4 bg-amber-500 text-white font-black rounded-2xl hover:bg-amber-600 shadow-lg shadow-amber-500/20 transition-all active:scale-95 no-print">
             <PlusIcon className="w-5 h-5 ml-2" />
             تسجيل حالة جديدة
-          </button>
-        </div>
+        </button>
       </div>
 
       {/* View Selector Tabs */}
-      <div className="flex border-b border-gray-700 no-print">
-        <button onClick={() => setViewType('daily')} className={`px-6 py-3 font-bold transition-all ${viewType === 'daily' ? 'text-amber-400 border-b-2 border-amber-400 bg-gray-700/30' : 'text-gray-400 hover:text-gray-200'}`}>سجل يومي</button>
-        <button onClick={() => setViewType('monthly')} className={`px-6 py-3 font-bold transition-all ${viewType === 'monthly' ? 'text-amber-400 border-b-2 border-amber-400 bg-gray-700/30' : 'text-gray-400 hover:text-gray-200'}`}>سجل شهري</button>
-        <button onClick={() => setViewType('yearly')} className={`px-6 py-3 font-bold transition-all ${viewType === 'yearly' ? 'text-amber-400 border-b-2 border-amber-400 bg-gray-700/30' : 'text-gray-400 hover:text-gray-200'}`}>سجل سنوي</button>
+      <div className="flex bg-gray-800/50 p-1.5 rounded-2xl no-print w-fit border border-gray-700/50">
+        <button onClick={() => setViewType('daily')} className={`px-6 py-2.5 rounded-xl font-black text-sm transition-all ${viewType === 'daily' ? 'bg-amber-500 text-white shadow-lg' : 'text-gray-400 hover:text-white'}`}>يومي</button>
+        <button onClick={() => setViewType('monthly')} className={`px-6 py-2.5 rounded-xl font-black text-sm transition-all ${viewType === 'monthly' ? 'bg-amber-500 text-white shadow-lg' : 'text-gray-400 hover:text-white'}`}>شهري</button>
+        <button onClick={() => setViewType('yearly')} className={`px-6 py-2.5 rounded-xl font-black text-sm transition-all ${viewType === 'yearly' ? 'bg-amber-500 text-white shadow-lg' : 'text-gray-400 hover:text-white'}`}>سنوي</button>
       </div>
 
       {/* Filters UI */}
-      <div className="bg-gray-700 p-4 rounded-xl shadow-lg flex flex-wrap items-center gap-6 no-print">
+      <div className="bg-gray-800 p-6 rounded-[2rem] shadow-xl flex flex-wrap items-center gap-6 no-print border border-gray-700/50">
         {viewType === 'daily' && (
-            <div className="flex items-center gap-3 w-full sm:w-auto">
-                <label className="font-medium text-gray-300 whitespace-nowrap">تاريخ اليوم:</label>
+            <div className="flex items-center gap-4 w-full sm:w-auto">
+                <label className="font-bold text-gray-400 text-sm whitespace-nowrap">تاريخ اليوم:</label>
                 <div className="w-full sm:w-64">
-                    <DateInput value={selectedDate} onChange={setSelectedDate} inputClassName="p-2" />
+                    <DateInput value={selectedDate} onChange={setSelectedDate} inputClassName="p-3" />
                 </div>
             </div>
         )}
         {viewType === 'monthly' && (
-            <div className="flex flex-wrap items-center gap-4">
-                <div className="flex items-center gap-2">
-                    <label className="text-gray-300">الشهر:</label>
-                    <select value={selectedMonth} onChange={e => setSelectedMonth(e.target.value)} className="p-2 bg-gray-800 border border-gray-600 rounded-lg text-white">
+            <div className="flex flex-wrap items-center gap-6">
+                <div className="flex items-center gap-3">
+                    <label className="text-gray-400 font-bold text-sm">الشهر:</label>
+                    <select value={selectedMonth} onChange={e => setSelectedMonth(e.target.value)} className="p-3 bg-gray-900 border border-gray-700 rounded-xl text-white font-bold outline-none focus:border-amber-500 transition-all">
                         {months.map(m => <option key={m.value} value={m.value}>{m.name}</option>)}
                     </select>
                 </div>
-                <div className="flex items-center gap-2">
-                    <label className="text-gray-300">السنة:</label>
-                    <select value={selectedYear} onChange={e => setSelectedYear(e.target.value)} className="p-2 bg-gray-800 border border-gray-600 rounded-lg text-white">
+                <div className="flex items-center gap-3">
+                    <label className="text-gray-400 font-bold text-sm">السنة:</label>
+                    <select value={selectedYear} onChange={e => setSelectedYear(e.target.value)} className="p-3 bg-gray-900 border border-gray-700 rounded-xl text-white font-bold outline-none focus:border-amber-500 transition-all">
                         {years.map(y => <option key={y} value={y}>{y}</option>)}
                     </select>
                 </div>
@@ -488,59 +523,58 @@ const ClinicPage: React.FC<ClinicPageProps> = ({ horses, clinicLog, protocols, o
         )}
         {viewType === 'yearly' && (
             <div className="flex items-center gap-3">
-                <label className="text-gray-300">اختر السنة:</label>
-                <select value={selectedYear} onChange={e => setSelectedYear(e.target.value)} className="p-2 bg-gray-800 border border-gray-600 rounded-lg text-white">
+                <label className="text-gray-400 font-bold text-sm">اختر السنة:</label>
+                <select value={selectedYear} onChange={e => setSelectedYear(e.target.value)} className="p-3 bg-gray-900 border border-gray-700 rounded-xl text-white font-bold outline-none focus:border-amber-500 transition-all">
                     {years.map(y => <option key={y} value={y}>{y}</option>)}
                 </select>
             </div>
         )}
         
-        {/* Print Button for specific view */}
-        <div className="mr-auto">
-             <button onClick={() => window.print()} className="px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-500 flex items-center gap-2">
-                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"></path></svg>
-                 طباعة {viewType === 'daily' ? 'اليومي' : viewType === 'monthly' ? 'الشهري' : 'السنوي'}
-             </button>
-        </div>
+        <button onClick={() => window.print()} className="mr-auto px-6 py-3 bg-gray-700 text-gray-200 font-bold rounded-xl hover:bg-gray-600 transition-all flex items-center gap-2 border border-gray-600">
+             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"></path></svg>
+             طباعة السجل
+        </button>
       </div>
 
-       <div className="bg-gray-700 rounded-xl shadow-lg overflow-hidden">
-        <div className="p-4 bg-gray-900/50 border-b border-gray-600 print:bg-white print:text-black print:border-black">
-            <h2 className="text-lg font-bold text-amber-400 print:text-black">
+       <div className="bg-gray-800 rounded-[2rem] shadow-2xl overflow-hidden border border-gray-700/50">
+        <div className="p-6 bg-gray-900/50 border-b border-gray-700/50 print:bg-white print:text-black">
+            <h2 className="text-xl font-black text-amber-500 print:text-black">
                 {viewType === 'daily' && `سجل يوم ${selectedDate}`}
                 {viewType === 'monthly' && `سجل شهر ${months.find(m => m.value === selectedMonth)?.name} ${selectedYear}`}
                 {viewType === 'yearly' && `سجل سنة ${selectedYear}`}
             </h2>
         </div>
         <div className="overflow-x-auto">
-            <table className="min-w-full divide-y divide-gray-600 print:divide-black">
-            <thead className="bg-gray-900/50 print:bg-gray-100">
-                <tr>
-                <th className="px-6 py-3 text-right text-xs font-medium text-gray-400 uppercase print:text-black">التاريخ</th>
-                <th className="px-6 py-3 text-right text-xs font-medium text-gray-400 uppercase print:text-black">اسم الحصان</th>
-                <th className="px-6 py-3 text-right text-xs font-medium text-gray-400 uppercase print:text-black">التشخيص</th>
-                <th className="px-6 py-3 text-right text-xs font-medium text-gray-400 uppercase print:text-black">الحالة</th>
-                <th className="px-6 py-3 text-right text-xs font-medium text-gray-400 uppercase print:text-black">العلاج</th>
-                <th className="px-6 py-3 text-right text-xs font-medium text-gray-400 uppercase no-print">الإجراءات</th>
+            <table className="min-w-full divide-y divide-gray-700/50 text-right">
+            <thead className="bg-gray-900/30">
+                <tr className="text-[10px] font-black text-gray-500 uppercase tracking-widest">
+                    <th className="px-6 py-4">التاريخ</th>
+                    <th className="px-6 py-4">اسم الحصان</th>
+                    <th className="px-6 py-4">التشخيص</th>
+                    <th className="px-6 py-4">الحالة</th>
+                    <th className="px-6 py-4">العلاج</th>
+                    <th className="px-6 py-4 text-left no-print">إجراءات</th>
                 </tr>
             </thead>
-            <tbody className="divide-y divide-gray-600 print:divide-black">
+            <tbody className="divide-y divide-gray-700/30">
                 {filteredClinicLog.length > 0 ? filteredClinicLog.map((entry) => (
-                <tr key={entry.id} className="hover:bg-gray-600/50 transition-colors print:bg-white print:text-black">
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-400 print:text-black">{entry.date}</td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-100 print:text-black">{entry.horseName}</td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-300 print:text-black">{entry.diagnosis}</td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm">{getRecordStatusBadge(entry.status)}</td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-300 print:text-black">{entry.treatment || 'لا يوجد'}</td>
-                    <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium space-x-2 space-x-reverse no-print">
-                    <button onClick={() => setEditingEntry(entry)} className="text-gray-400 hover:text-gray-200 p-2 rounded-md hover:bg-gray-800/50" aria-label={`تعديل ${entry.horseName}`}><PencilIcon className="w-5 h-5"/></button>
-                    <button onClick={() => setDeletingEntry(entry)} className="text-red-500 hover:text-red-400 p-2 rounded-md hover:bg-gray-800/50" aria-label={`حذف ${entry.horseName}`}><TrashIcon className="w-5 h-5"/></button>
+                <tr key={entry.id} className="hover:bg-gray-700/20 transition-colors group">
+                    <td className="px-6 py-5 whitespace-nowrap text-xs font-mono text-gray-400">{entry.date}</td>
+                    <td className="px-6 py-5 whitespace-nowrap text-sm font-black text-white">{entry.horseName}</td>
+                    <td className="px-6 py-5 whitespace-nowrap text-sm text-gray-300 font-bold">{entry.diagnosis}</td>
+                    <td className="px-6 py-5 whitespace-nowrap">{getRecordStatusBadge(entry.status)}</td>
+                    <td className="px-6 py-5 whitespace-nowrap text-xs text-gray-400 italic max-w-xs truncate">{entry.treatment || '-'}</td>
+                    <td className="px-6 py-5 whitespace-nowrap text-left no-print">
+                        <div className="flex justify-end gap-2 opacity-50 group-hover:opacity-100 transition-opacity">
+                            <button onClick={() => setEditingEntry(entry)} className="p-2 text-gray-400 hover:text-amber-400 hover:bg-amber-500/10 rounded-lg transition-all"><PencilIcon className="w-5 h-5"/></button>
+                            <button onClick={() => setDeletingEntry(entry)} className="p-2 text-gray-400 hover:text-red-400 hover:bg-red-500/10 rounded-lg transition-all"><TrashIcon className="w-5 h-5"/></button>
+                        </div>
                     </td>
                 </tr>
                 )) : (
                 <tr>
-                    <td colSpan={6} className="text-center py-10 text-gray-400">
-                    لا توجد حالات مسجلة للفترة المختارة.
+                    <td colSpan={6} className="text-center py-20 text-gray-500 font-bold">
+                        لا توجد حالات مسجلة للفترة المختارة.
                     </td>
                 </tr>
                 )}
