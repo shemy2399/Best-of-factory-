@@ -4,14 +4,14 @@ import { Horse, Medication, MedicalRecordEntry, TreatmentProtocol } from '../typ
 import { PlusIcon, XMarkIcon, HorseIcon, PencilIcon, TrashIcon, CheckIcon, PrintIcon } from '../components/icons';
 import DateInput from '../components/DateInput';
 
-type ClinicLogEntry = { horseName: string; horseId: string } & MedicalRecordEntry;
+type ClinicLogEntry = { horseName: string; horseNumber?: string; horseId: string } & MedicalRecordEntry;
 
 interface ClinicPageProps {
   horses: Horse[];
   medications: Medication[];
   clinicLog: ClinicLogEntry[];
   protocols: TreatmentProtocol[];
-  onAddEntry: (entry: Omit<MedicalRecordEntry, 'id'>, horseId: string, horseName: string, addToHistory: boolean) => void;
+  onAddEntry: (entry: Omit<MedicalRecordEntry, 'id'>, horseId: string, horseName: string, horseNumber: string, addToHistory: boolean) => void;
   onEditEntry: (entry: ClinicLogEntry, addToHistory: boolean) => void;
   onDeleteEntry: (entryId: string, horseId: string) => void;
   globalBattalionFilter: Horse['battalion'] | 'الكل';
@@ -22,7 +22,7 @@ const AddEntryModal: React.FC<{
   horses: Horse[];
   protocols: TreatmentProtocol[];
   onClose: () => void;
-  onAddEntry: (entry: Omit<MedicalRecordEntry, 'id'>, horseId: string, horseName: string, addToHistory: boolean) => void;
+  onAddEntry: (entry: Omit<MedicalRecordEntry, 'id'>, horseId: string, horseName: string, horseNumber: string, addToHistory: boolean) => void;
 }> = ({ horses, protocols, onClose, onAddEntry }) => {
     const [selectedHorseId, setSelectedHorseId] = useState<string>('');
     const [horseSearch, setHorseSearch] = useState('');
@@ -75,7 +75,7 @@ const AddEntryModal: React.FC<{
             ...(followUpDate && { followUpDate }),
             ...(followUpNotes && { followUpNotes })
         };
-        onAddEntry(entryData, selectedHorseId, selectedHorse.name, addToMedicalHistory);
+        onAddEntry(entryData, selectedHorseId, selectedHorse.name, selectedHorse.number, addToMedicalHistory);
         onClose();
     };
     
@@ -152,16 +152,19 @@ const EditEntryModal: React.FC<{
   onClose: () => void;
   onEditEntry: (entry: ClinicLogEntry, addToHistory: boolean) => void;
 }> = ({ entry, horses, onClose, onEditEntry }) => {
-    const [formData, setFormData] = useState({ ...entry, recoveryDate: entry.recoveryDate || '', followUpDate: entry.followUpDate || '', followUpNotes: entry.followUpNotes || '' });
+    // Lookup horse number if missing in entry
+    const horseDetails = useMemo(() => horses.find(h => h.id === entry.horseId), [horses, entry.horseId]);
+    const displayNum = entry.horseNumber || horseDetails?.number || '---';
+
+    const [formData, setFormData] = useState({ ...entry, horseNumber: displayNum, recoveryDate: entry.recoveryDate || '', followUpDate: entry.followUpDate || '', followUpNotes: entry.followUpNotes || '' });
     const [addToMedicalHistory, setAddToMedicalHistory] = useState(() => {
-        const horse = horses.find(h => h.id === entry.horseId);
-        return horse?.medicalHistory?.some(m => m.id === entry.id) || false;
+        return horseDetails?.medicalHistory?.some(m => m.id === entry.id) || false;
     });
     const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => { const { name, value } = e.target; setFormData(prev => ({...prev, [name]: value})); };
     useEffect(() => { if(formData.status !== 'recovered') setFormData(prev => ({...prev, recoveryDate: ''})); }, [formData.status]);
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
-        const dataToSubmit: ClinicLogEntry = { ...formData };
+        const dataToSubmit: ClinicLogEntry = { ...formData } as any;
         if (!dataToSubmit.followUpDate) delete dataToSubmit.followUpDate;
         if (!dataToSubmit.followUpNotes) delete dataToSubmit.followUpNotes;
         if (!dataToSubmit.recoveryDate) delete dataToSubmit.recoveryDate;
@@ -176,7 +179,12 @@ const EditEntryModal: React.FC<{
                     <button onClick={onClose} className="text-gray-400 hover:text-white transition-colors"><XMarkIcon className="w-6 h-6" /></button>
                 </div>
                 <form onSubmit={handleSubmit} className="space-y-6">
-                    <div><label className="block mb-2 font-bold text-gray-400 text-sm">الحصان</label><input value={formData.horseName} className="w-full p-4 border border-gray-700 rounded-xl bg-gray-900/50 text-gray-500 font-bold" readOnly /></div>
+                    <div>
+                        <label className="block mb-2 font-bold text-gray-400 text-sm">الحصان</label>
+                        <div className="w-full p-4 border border-gray-700 rounded-xl bg-gray-900/50 text-amber-500 font-black">
+                            {formData.horseName} <span className="text-gray-500 font-mono text-xs mr-2">(#{displayNum})</span>
+                        </div>
+                    </div>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                          <div><label className="block mb-2 font-bold text-gray-400 text-sm">تاريخ الدخول</label><DateInput value={formData.date} onChange={value => handleChange({target:{name:'date', value}} as any)} required /></div>
                         <div>
@@ -241,6 +249,14 @@ const ClinicPage: React.FC<ClinicPageProps> = ({ horses, clinicLog, protocols, o
   const [selectedMonth, setSelectedMonth] = useState<string>(String(new Date().getMonth() + 1));
   const [selectedYear, setSelectedYear] = useState<string>(String(new Date().getFullYear()));
   const BATTALIONS: Exclude<Horse['battalion'], 'الكل'>[] = ['الكتيبة الاولى', 'الكتيبة الثانية', 'الكتيبة الثالثة', 'نادي الفروسية'];
+  
+  // Create a mapping of Horse ID to Number for fallback lookup
+  const horseNumberMap = useMemo(() => {
+    const map: Record<string, string> = {};
+    horses.forEach(h => { map[h.id] = h.number; });
+    return map;
+  }, [horses]);
+
   const horsesForSelectedBattalion = useMemo(() => { if (globalBattalionFilter === 'الكل') return []; return horses.filter(h => h.battalion === globalBattalionFilter); }, [horses, globalBattalionFilter]);
   const filteredClinicLog = useMemo(() => {
     if (globalBattalionFilter === 'الكل') return [];
@@ -323,19 +339,28 @@ const ClinicPage: React.FC<ClinicPageProps> = ({ horses, clinicLog, protocols, o
         <div className="overflow-x-auto">
             <table className="min-w-full divide-y divide-gray-700/50 text-right">
             <thead className="bg-gray-900/30">
-                <tr className="text-[10px] font-black text-gray-500 uppercase tracking-widest"><th className="px-6 py-4">تاريخ الدخول</th><th className="px-6 py-4">اسم الحصان</th><th className="px-6 py-4">التشخيص</th><th className="px-6 py-4 text-center">الموقف الحالي</th><th className="px-6 py-4">العلاج والملاحظات</th><th className="px-6 py-4 text-left no-print">إجراءات</th></tr>
+                <tr className="text-[10px] font-black text-gray-500 uppercase tracking-widest"><th className="px-6 py-4">تاريخ الدخول</th><th className="px-6 py-4">اسم الحصان ورقمه</th><th className="px-6 py-4">التشخيص</th><th className="px-6 py-4 text-center">الموقف الحالي</th><th className="px-6 py-4">العلاج والملاحظات</th><th className="px-6 py-4 text-left no-print">إجراءات</th></tr>
             </thead>
             <tbody className="divide-y divide-gray-700/30">
-                {filteredClinicLog.length > 0 ? filteredClinicLog.map((entry) => (
-                <tr key={entry.id} className="transition-colors group hover:bg-gray-700/20">
-                    <td className="px-6 py-5 whitespace-nowrap text-xs font-mono text-gray-400">{entry.date}{entry.status === 'recovered' && (<span className="block text-[9px] text-blue-400 font-bold mt-1">شفاء: {entry.recoveryDate || entry.date}</span>)}</td>
-                    <td className="px-6 py-5 whitespace-nowrap text-sm font-black text-white">{entry.horseName}</td>
-                    <td className="px-6 py-5 whitespace-nowrap text-sm text-gray-300 font-bold">{entry.diagnosis}</td>
-                    <td className="px-6 py-5 whitespace-nowrap text-center">{getRecordStatusBadge(entry)}</td>
-                    <td className="px-6 py-5 text-xs text-gray-400 italic max-w-xs"><div className="truncate group-hover:whitespace-normal transition-all duration-500">{entry.treatment || '-'}{entry.notes && <p className="mt-1 text-gray-500 border-t border-gray-700/50 pt-1">ملاحظة: {entry.notes}</p>}</div></td>
-                    <td className="px-6 py-5 whitespace-nowrap text-left no-print"><div className="flex justify-end gap-2 opacity-50 group-hover:opacity-100 transition-opacity"><button onClick={() => setEditingEntry(entry)} className="p-2 text-gray-400 hover:text-amber-400 hover:bg-amber-500/10 rounded-lg transition-all"><PencilIcon className="w-5 h-5"/></button><button onClick={() => setDeletingEntry(entry)} className="p-2 text-gray-400 hover:text-red-400 hover:bg-red-500/10 rounded-lg transition-all"><TrashIcon className="w-5 h-5"/></button></div></td>
-                </tr>
-                )) : (<tr><td colSpan={6} className="text-center py-20 text-gray-500 font-bold">{viewType === 'daily' ? 'عنبر العيادة خالٍ تماماً..' : 'لا توجد سجلات مؤرشفة للفترة المختارة.'}</td></tr>)}
+                {filteredClinicLog.length > 0 ? filteredClinicLog.map((entry) => {
+                    // Fallback lookup for the number
+                    const horseNum = entry.horseNumber || horseNumberMap[entry.horseId] || '---';
+                    return (
+                        <tr key={entry.id} className="transition-colors group hover:bg-gray-700/20">
+                            <td className="px-6 py-5 whitespace-nowrap text-xs font-mono text-gray-400">{entry.date}{entry.status === 'recovered' && (<span className="block text-[9px] text-blue-400 font-bold mt-1">شفاء: {entry.recoveryDate || entry.date}</span>)}</td>
+                            <td className="px-6 py-5 whitespace-nowrap">
+                                <div className="flex flex-col leading-tight">
+                                    <span className="text-sm font-black text-white">{entry.horseName}</span>
+                                    <span className="text-[10px] font-mono text-amber-500/80">#{horseNum}</span>
+                                </div>
+                            </td>
+                            <td className="px-6 py-5 whitespace-nowrap text-sm text-gray-300 font-bold">{entry.diagnosis}</td>
+                            <td className="px-6 py-5 whitespace-nowrap text-center">{getRecordStatusBadge(entry)}</td>
+                            <td className="px-6 py-5 text-xs text-gray-400 italic max-w-xs"><div className="truncate group-hover:whitespace-normal transition-all duration-500">{entry.treatment || '-'}{entry.notes && <p className="mt-1 text-gray-500 border-t border-gray-700/50 pt-1">ملاحظة: {entry.notes}</p>}</div></td>
+                            <td className="px-6 py-5 whitespace-nowrap text-left no-print"><div className="flex justify-end gap-2 opacity-50 group-hover:opacity-100 transition-opacity"><button onClick={() => setEditingEntry(entry)} className="p-2 text-gray-400 hover:text-amber-400 hover:bg-amber-500/10 rounded-lg transition-all"><PencilIcon className="w-5 h-5"/></button><button onClick={() => setDeletingEntry(entry)} className="p-2 text-gray-400 hover:text-red-400 hover:bg-red-500/10 rounded-lg transition-all"><TrashIcon className="w-5 h-5"/></button></div></td>
+                        </tr>
+                    );
+                }) : (<tr><td colSpan={6} className="text-center py-20 text-gray-500 font-bold">{viewType === 'daily' ? 'عنبر العيادة خالٍ تماماً..' : 'لا توجد سجلات مؤرشفة للفترة المختارة.'}</td></tr>)}
             </tbody>
             </table>
         </div>

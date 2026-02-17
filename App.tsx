@@ -110,7 +110,7 @@ const App: React.FC = () => {
 
   const [horses, setHorses] = useState<Horse[]>([]);
   const [medications, setMedications] = useState<Medication[]>([]);
-  const [clinicLog, setClinicLog] = useState<({ horseName: string; horseId: string } & MedicalRecordEntry)[]>([]);
+  const [clinicLog, setClinicLog] = useState<({ horseName: string; horseNumber: string; horseId: string } & MedicalRecordEntry)[]>([]);
   const [vaccinations, setVaccinations] = useState<Vaccination[]>([]);
   const [feedingSchedules, setFeedingSchedules] = useState<FeedingScheduleEntry[]>([]);
   const [protocols, setProtocols] = useState<TreatmentProtocol[]>([]);
@@ -264,13 +264,13 @@ const App: React.FC = () => {
               case 'clinic': 
                 return <ClinicPage 
                     horses={horses} medications={medications} clinicLog={clinicLog} protocols={protocols} 
-                    onAddEntry={async (entry, hId, hName, addHist) => { 
-                        await addDoc(collection(db, "clinicLog"), { ...entry, horseName: hName, horseId: hId, createdAt: serverTimestamp() }); 
+                    onAddEntry={async (entry, hId, hName, hNum, addHist) => { 
+                        await addDoc(collection(db, "clinicLog"), { ...entry, horseName: hName, horseNumber: hNum, horseId: hId, createdAt: serverTimestamp() }); 
                         handleCreateNotification(`حالة عيادة: ${hName}`, 'clinic'); 
                         await syncHorseMasterStatus(hId, entry.status);
                     }} 
                     onEditEntry={async (upd, addHist) => { 
-                        const {id, horseId, horseName, ...data} = upd; 
+                        const {id, horseId, horseName, horseNumber, ...data} = upd; 
                         await updateDoc(doc(db, "clinicLog", id), { ...data, updatedAt: serverTimestamp() }); 
                         await syncHorseMasterStatus(horseId, upd.status);
                     }} 
