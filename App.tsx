@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import { collection, onSnapshot, addDoc, doc, updateDoc, deleteDoc, query, orderBy, deleteField, getDocs, where, limit } from 'firebase/firestore';
+import { collection, onSnapshot, addDoc, doc, updateDoc, deleteDoc, query, orderBy, deleteField, getDocs, where, limit, serverTimestamp } from 'firebase/firestore';
 import { db } from './services/firebase'; 
 import Sidebar from './components/Sidebar';
 import TopBar from './components/TopBar';
@@ -140,35 +140,38 @@ const App: React.FC = () => {
   }, []);
 
   /**
-   * دالة المزامنة الذكية المحدثة: تضمن أن الحصان يعود "سليم" إذا لم يوجد سجل مريض في الدفتر.
+   * دالة المزامنة الذكية المحدثة: 
+   * تضمن توافق حالة الحصان في "سجلات الخيول" مع "دفتر العيادة".
    */
-  const syncHorseMasterStatus = useCallback(async (horseId: string) => {
+  const syncHorseMasterStatus = useCallback(async (horseId: string, forcedStatus?: MedicalRecordEntry['status']) => {
     try {
-        const q = query(
-            collection(db, "clinicLog"),
-            where("horseId", "==", horseId),
-            orderBy("date", "desc"),
-            limit(1)
-        );
-        const snapshot = await getDocs(q);
+        let newMasterStatus: Horse['status'] = 'healthy';
         
-        let newStatus: Horse['status'] = 'healthy';
-        let latestHistory: MedicalRecordEntry[] = [];
-
-        if (!snapshot.empty) {
-            const latestEntry = snapshot.docs[0].data() as MedicalRecordEntry;
-            if (latestEntry.status === 'sick') newStatus = 'sick';
-            else if (latestEntry.status === 'monitoring') newStatus = 'monitoring';
-            else newStatus = 'healthy'; 
-            
-            const allLogsQ = query(collection(db, "clinicLog"), where("horseId", "==", horseId), orderBy("date", "desc"));
-            const allLogsSnapshot = await getDocs(allLogsQ);
-            latestHistory = allLogsSnapshot.docs.map(d => ({ id: d.id, ...d.data() } as MedicalRecordEntry));
+        if (forcedStatus) {
+            if (forcedStatus === 'monitoring') newMasterStatus = 'monitoring';
+            else newMasterStatus = 'healthy'; 
+        } else {
+            const q = query(
+                collection(db, "clinicLog"),
+                where("horseId", "==", horseId),
+                orderBy("date", "desc"),
+                orderBy("createdAt", "desc"),
+                limit(1)
+            );
+            const snapshot = await getDocs(q);
+            if (!snapshot.empty) {
+                const latestEntry = snapshot.docs[0].data() as MedicalRecordEntry;
+                if (latestEntry.status === 'monitoring') newMasterStatus = 'monitoring';
+                else newMasterStatus = 'healthy';
+            }
         }
 
-        // تحديث الموقف الرسمي في وثيقة الحصان ليتطابق مع الدفتر
+        const allLogsQ = query(collection(db, "clinicLog"), where("horseId", "==", horseId), orderBy("date", "desc"));
+        const allLogsSnapshot = await getDocs(allLogsQ);
+        const latestHistory = allLogsSnapshot.docs.map(d => ({ id: d.id, ...d.data() } as MedicalRecordEntry));
+
         await updateDoc(doc(db, "horses", horseId), { 
-            status: newStatus,
+            status: newMasterStatus,
             medicalHistory: latestHistory
         });
     } catch (err) {
@@ -257,19 +260,19 @@ const App: React.FC = () => {
               case 'dashboard': 
                 return <Dashboard horses={horses} medications={medications} clinicLog={clinicLog} globalBattalionFilter={globalBattalionFilter} setActivePage={handleNavigate} />;
               case 'horses': 
-                return <HorsesPage horses={horses} vaccinations={vaccinations} onAddHorse={handleAddHorse} onEditHorse={handleEditHorse} onDeleteHorse={handleDeleteHorse} globalBattalionFilter={globalBattalionFilter} initialSearchTerm={horseSearchFilter} />;
+                return <HorsesPage horses={horses} vaccinations={vaccinations} clinicLog={clinicLog} onAddHorse={handleAddHorse} onEditHorse={handleEditHorse} onDeleteHorse={handleDeleteHorse} globalBattalionFilter={globalBattalionFilter} initialSearchTerm={horseSearchFilter} />;
               case 'clinic': 
                 return <ClinicPage 
                     horses={horses} medications={medications} clinicLog={clinicLog} protocols={protocols} 
                     onAddEntry={async (entry, hId, hName, addHist) => { 
-                        await addDoc(collection(db, "clinicLog"), { ...entry, horseName: hName, horseId: hId }); 
+                        await addDoc(collection(db, "clinicLog"), { ...entry, horseName: hName, horseId: hId, createdAt: serverTimestamp() }); 
                         handleCreateNotification(`حالة عيادة: ${hName}`, 'clinic'); 
-                        await syncHorseMasterStatus(hId);
+                        await syncHorseMasterStatus(hId, entry.status);
                     }} 
                     onEditEntry={async (upd, addHist) => { 
                         const {id, horseId, horseName, ...data} = upd; 
-                        await updateDoc(doc(db, "clinicLog", id), data); 
-                        await syncHorseMasterStatus(horseId);
+                        await updateDoc(doc(db, "clinicLog", id), { ...data, updatedAt: serverTimestamp() }); 
+                        await syncHorseMasterStatus(horseId, upd.status);
                     }} 
                     onDeleteEntry={async (id, horseId) => {
                         await deleteDoc(doc(db, "clinicLog", id));

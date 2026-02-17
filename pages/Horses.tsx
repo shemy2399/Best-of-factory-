@@ -1,12 +1,15 @@
 
 import React, { useState, useMemo, useEffect, useCallback } from 'react';
-import { Horse, Vaccination } from '../types';
+import { Horse, Vaccination, MedicalRecordEntry } from '../types';
 import { PlusIcon, PencilIcon, TrashIcon, XMarkIcon, HorseIcon, EyeIcon, BreedingIcon, CheckIcon, ClinicIcon, VaccinationIcon, MedicalRecordsIcon } from '../components/icons'; 
 import DateInput from '../components/DateInput';
+
+type ClinicLogEntry = { horseName: string; horseId: string } & MedicalRecordEntry;
 
 interface HorsesPageProps {
   horses: Horse[];
   vaccinations: Vaccination[];
+  clinicLog: ClinicLogEntry[];
   onAddHorse: (horse: any) => void;
   onEditHorse: (horse: Horse) => void;
   onDeleteHorse: (horseId: string) => void;
@@ -27,8 +30,7 @@ const StatusBadge = React.memo(({ status }: { status: string }) => {
   const s = (status || 'healthy').toLowerCase();
   const config: any = {
     healthy: { text: 'سليم', classes: 'text-green-400 bg-green-500/10 border-green-500/20' },
-    monitoring: { text: 'متابعة', classes: 'text-amber-400 bg-amber-500/10 border-amber-500/20' },
-    sick: { text: 'مريض', classes: 'text-red-400 bg-red-500/10 border-red-500/20 animate-pulse' },
+    monitoring: { text: 'متابعة', classes: 'text-amber-400 bg-amber-500/10 border-amber-500/20 animate-pulse' },
   };
   const c = config[s] || config.healthy;
   return (
@@ -40,8 +42,9 @@ const StatusBadge = React.memo(({ status }: { status: string }) => {
 });
 
 // --- Optimized Row Component ---
-const HorseRow = React.memo(({ horse, onView, onEdit, onDelete }: { 
+const HorseRow = React.memo(({ horse, effectiveStatus, onView, onEdit, onDelete }: { 
     horse: Horse, 
+    effectiveStatus: string,
     onView: (h: Horse) => void, 
     onEdit: (h: Horse) => void, 
     onDelete: (id: string) => void 
@@ -51,17 +54,13 @@ const HorseRow = React.memo(({ horse, onView, onEdit, onDelete }: {
 
     return (
         <tr className="hover:bg-gray-800/50 transition-colors group border-b border-gray-700/50 last:border-0">
-            {/* رقم الحصان */}
             <td className="px-4 py-3 align-middle w-24">
                 <span className="font-mono font-black text-amber-500 bg-gray-900 px-2 py-1 rounded text-sm shadow-sm block text-center border border-gray-700">
                     {horse.number}
                 </span>
             </td>
-
-            {/* تفاصيل الحصان */}
             <td className="px-4 py-3 align-middle">
                 <div className="flex flex-col gap-1.5">
-                    {/* الصف الأول: الاسم والجنس والحالات الخاصة */}
                     <div className="flex items-center gap-2 flex-wrap">
                         <span className="font-bold text-white text-base ml-1">{horse.name}</span>
                          <InfoBadge 
@@ -75,8 +74,6 @@ const HorseRow = React.memo(({ horse, onView, onEdit, onDelete }: {
                              <InfoBadge label="مرضعة" color="text-white bg-blue-600 border-blue-500 shadow-blue-500/20" />
                         )}
                     </div>
-                    
-                    {/* الصف الثاني: البادجات مرتبة بشكل مضغوط */}
                     <div className="flex flex-wrap items-center gap-1.5 opacity-80">
                         <span className="text-[10px] text-gray-500 font-bold bg-gray-800 px-1.5 py-0.5 rounded border border-gray-700">{horse.battalion}</span>
                         {horse.breed && (
@@ -91,13 +88,9 @@ const HorseRow = React.memo(({ horse, onView, onEdit, onDelete }: {
                     </div>
                 </div>
             </td>
-
-            {/* الحالة الصحية */}
             <td className="px-4 py-3 align-middle text-center w-32">
-                <StatusBadge status={horse.status} />
+                <StatusBadge status={effectiveStatus} />
             </td>
-
-            {/* الإجراءات */}
             <td className="px-4 py-3 align-middle text-left w-40">
                 <div className="flex justify-end gap-1 opacity-60 group-hover:opacity-100 transition-opacity">
                     <button onClick={() => onView(horse)} className="p-1.5 text-gray-400 hover:text-blue-400 hover:bg-blue-500/10 rounded transition-colors" title="الملف الطبي الكامل">
@@ -115,24 +108,15 @@ const HorseRow = React.memo(({ horse, onView, onEdit, onDelete }: {
     );
 });
 
-
 // --- Full Medical Record Modal ---
 const HorseViewModal = ({ horse, vaccinations, onClose }: { horse: Horse; vaccinations: Vaccination[]; onClose: () => void }) => {
   const [activeTab, setActiveTab] = useState<'info' | 'clinic' | 'vaccines' | 'deworming'>('info');
-
-  const horseVaccinations = useMemo(() => 
-    vaccinations.filter(v => v.horseId === horse.id && v.type === 'vaccination').sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()),
-  [vaccinations, horse.id]);
-
-  const horseDeworming = useMemo(() => 
-    vaccinations.filter(v => v.horseId === horse.id && v.type === 'deworming').sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()),
-  [vaccinations, horse.id]);
+  const horseVaccinations = useMemo(() => vaccinations.filter(v => v.horseId === horse.id && v.type === 'vaccination').sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()), [vaccinations, horse.id]);
+  const horseDeworming = useMemo(() => vaccinations.filter(v => v.horseId === horse.id && v.type === 'deworming').sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()), [vaccinations, horse.id]);
 
   return (
   <div className="fixed inset-0 bg-black/95 backdrop-blur-xl flex justify-center items-center z-[70] p-4 text-right">
     <div className="bg-gray-900 rounded-[2rem] border border-gray-800 w-full max-w-5xl max-h-[90vh] flex flex-col shadow-2xl overflow-hidden relative">
-      
-      {/* Header */}
       <div className="relative h-28 bg-gradient-to-l from-amber-900/20 to-gray-900 flex items-center justify-between px-8 border-b border-gray-800 shrink-0">
           <div className="flex items-center gap-6">
               <div className="p-3 bg-gray-800 rounded-2xl border border-gray-700 shadow-lg">
@@ -144,8 +128,6 @@ const HorseViewModal = ({ horse, vaccinations, onClose }: { horse: Horse; vaccin
                      <span className="text-amber-500 font-mono font-bold">#{horse.number}</span>
                      <span className="text-gray-500">|</span>
                      <span className="text-gray-400">{horse.battalion}</span>
-                     <span className="text-gray-500">|</span>
-                     <StatusBadge status={horse.status} />
                   </div>
               </div>
           </div>
@@ -153,8 +135,6 @@ const HorseViewModal = ({ horse, vaccinations, onClose }: { horse: Horse; vaccin
               <XMarkIcon className="w-6 h-6" />
           </button>
       </div>
-
-      {/* Tabs */}
       <div className="flex bg-gray-800 border-b border-gray-700 px-6 pt-4 shrink-0 overflow-x-auto">
           <button onClick={() => setActiveTab('info')} className={`pb-4 px-6 font-bold text-sm flex items-center gap-2 border-b-2 transition-all ${activeTab === 'info' ? 'border-amber-500 text-amber-500' : 'border-transparent text-gray-400 hover:text-white'}`}>
               <HorseIcon className="w-5 h-5" />
@@ -173,11 +153,7 @@ const HorseViewModal = ({ horse, vaccinations, onClose }: { horse: Horse; vaccin
               التجريعات ({horseDeworming.length})
           </button>
       </div>
-
-      {/* Content */}
       <div className="p-8 overflow-y-auto custom-scrollbar flex-1 bg-gray-900">
-          
-          {/* TAB: Info */}
           {activeTab === 'info' && (
               <div className="space-y-8 animate-fade-in">
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
@@ -206,7 +182,6 @@ const HorseViewModal = ({ horse, vaccinations, onClose }: { horse: Horse; vaccin
                         <p className="text-lg font-mono font-bold text-cyan-400">{horse.microchipNumber || '-'}</p>
                     </div>
                 </div>
-
                 {(horse.pregnancy || horse.lactation) && (
                     <div className="bg-gray-800/30 p-5 rounded-2xl border border-gray-700">
                         <h3 className="text-sm font-bold text-pink-400 mb-3 flex items-center gap-2">
@@ -235,8 +210,6 @@ const HorseViewModal = ({ horse, vaccinations, onClose }: { horse: Horse; vaccin
                 )}
               </div>
           )}
-
-          {/* TAB: Clinic History */}
           {activeTab === 'clinic' && (
               <div className="animate-fade-in">
                   {horse.medicalHistory && horse.medicalHistory.length > 0 ? (
@@ -269,8 +242,6 @@ const HorseViewModal = ({ horse, vaccinations, onClose }: { horse: Horse; vaccin
                   )}
               </div>
           )}
-
-          {/* TAB: Vaccinations */}
           {activeTab === 'vaccines' && (
               <div className="animate-fade-in">
                   {horseVaccinations.length > 0 ? (
@@ -306,8 +277,6 @@ const HorseViewModal = ({ horse, vaccinations, onClose }: { horse: Horse; vaccin
                   )}
               </div>
           )}
-
-          {/* TAB: Deworming */}
           {activeTab === 'deworming' && (
               <div className="animate-fade-in">
                   {horseDeworming.length > 0 ? (
@@ -343,14 +312,12 @@ const HorseViewModal = ({ horse, vaccinations, onClose }: { horse: Horse; vaccin
                   )}
               </div>
           )}
-
       </div>
     </div>
   </div>
   );
 };
 
-// --- Confirmation Modal ---
 const ConfirmDeleteHorseModal: React.FC<{
   horse: Horse;
   onClose: () => void;
@@ -368,31 +335,16 @@ const ConfirmDeleteHorseModal: React.FC<{
                     <span className="block mt-1 text-xs text-red-400">سيتم حذف جميع السجلات المرتبطة به.</span>
                 </p>
                 <div className="mt-8 flex gap-3">
-                    <button
-                        type="button"
-                        onClick={onConfirm}
-                        className="flex-1 py-3 bg-red-600 text-white font-bold rounded-xl hover:bg-red-700 transition-all shadow-lg shadow-red-600/20"
-                    >
-                        نعم، حذف
-                    </button>
-                    <button
-                        type="button"
-                        onClick={onClose}
-                        className="flex-1 py-3 bg-gray-700 text-gray-300 font-bold rounded-xl hover:bg-gray-600 transition-all"
-                    >
-                        إلغاء
-                    </button>
+                    <button type="button" onClick={onConfirm} className="flex-1 py-3 bg-red-600 text-white font-bold rounded-xl hover:bg-red-700 transition-all shadow-lg shadow-red-600/20">نعم، حذف</button>
+                    <button type="button" onClick={onClose} className="flex-1 py-3 bg-gray-700 text-gray-300 font-bold rounded-xl hover:bg-gray-600 transition-all">إلغاء</button>
                 </div>
             </div>
         </div>
     );
 };
 
-// --- Form Modal ---
 const HorseFormModal = ({ horse, onClose, onSave }: { horse?: Horse; onClose: () => void; onSave: (data: any) => void }) => {
   const [activeTab, setActiveTab] = useState<'basic' | 'details' | 'reproduction'>('basic');
-  
-  // State for basic info
   const [formData, setFormData] = useState({
     name: horse?.name || '',
     number: horse?.number || '',
@@ -405,117 +357,60 @@ const HorseFormModal = ({ horse, onClose, onSave }: { horse?: Horse; onClose: ()
     microchipNumber: horse?.microchipNumber || '',
     status: horse?.status || 'healthy'
   });
-
-  // State for Reproduction (Pregnancy)
   const [isPregnant, setIsPregnant] = useState(!!horse?.pregnancy);
-  const [pregnancyData, setPregnancyData] = useState({
-      conceptionDate: horse?.pregnancy?.conceptionDate || '',
-      expectedDueDate: horse?.pregnancy?.expectedDueDate || '',
-      notes: horse?.pregnancy?.notes || ''
-  });
-
-  // State for Reproduction (Lactation)
+  const [pregnancyData, setPregnancyData] = useState({ conceptionDate: horse?.pregnancy?.conceptionDate || '', expectedDueDate: horse?.pregnancy?.expectedDueDate || '', notes: horse?.pregnancy?.notes || '' });
   const [isNursing, setIsNursing] = useState(!!horse?.lactation);
-  const [nursingData, setNursingData] = useState({
-      foalName: horse?.lactation?.foalName || '',
-      foalId: horse?.lactation?.foalId || '', 
-      startDate: horse?.lactation?.startDate || '',
-      expectedWeaningDate: horse?.lactation?.expectedWeaningDate || '',
-      notes: horse?.lactation?.notes || ''
-  });
-
+  const [nursingData, setNursingData] = useState({ foalName: horse?.lactation?.foalName || '', foalId: horse?.lactation?.foalId || '', startDate: horse?.lactation?.startDate || '', expectedWeaningDate: horse?.lactation?.expectedWeaningDate || '', notes: horse?.lactation?.notes || '' });
   const isFemale = formData.gender.includes('انثى');
-
-  // FIX: Robust date calculation helper to prevent crashes
   const calculateDate = useCallback((baseDate: string, daysToAdd: number = 0, monthsToAdd: number = 0) => {
       if (!baseDate) return '';
       const date = new Date(baseDate);
-      if (isNaN(date.getTime())) return ''; // Return empty if invalid to avoid crash
-      
+      if (isNaN(date.getTime())) return '';
       if (daysToAdd) date.setDate(date.getDate() + daysToAdd);
       if (monthsToAdd) date.setMonth(date.getMonth() + monthsToAdd);
-      
-      try {
-          return date.toISOString().split('T')[0];
-      } catch (e) {
-          return '';
-      }
+      try { return date.toISOString().split('T')[0]; } catch (e) { return ''; }
   }, []);
-
-  // Auto-calculate Due Date (approx 340 days) with safety check
   useEffect(() => {
       if (pregnancyData.conceptionDate) {
           const newDueDate = calculateDate(pregnancyData.conceptionDate, 340, 0);
           if (newDueDate) {
-              setPregnancyData(prev => {
-                  if (prev.expectedDueDate === newDueDate) return prev;
-                  return { ...prev, expectedDueDate: newDueDate };
-              });
+              setPregnancyData(prev => { if (prev.expectedDueDate === newDueDate) return prev; return { ...prev, expectedDueDate: newDueDate }; });
           }
       }
   }, [pregnancyData.conceptionDate, calculateDate]);
-
-  // Auto-calculate Weaning Date (approx 6 months) with safety check
   useEffect(() => {
       if (nursingData.startDate) {
           const newWeaningDate = calculateDate(nursingData.startDate, 0, 6);
           if (newWeaningDate) {
-             setNursingData(prev => {
-                 if (prev.expectedWeaningDate === newWeaningDate) return prev;
-                 return { ...prev, expectedWeaningDate: newWeaningDate };
-             });
+             setNursingData(prev => { if (prev.expectedWeaningDate === newWeaningDate) return prev; return { ...prev, expectedWeaningDate: newWeaningDate }; });
           }
       }
   }, [nursingData.startDate, calculateDate]);
-
-
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    
     const finalData: any = { ...formData };
-
-    // Handle Reproduction Data
-    if (isFemale && isPregnant) {
-        finalData.pregnancy = pregnancyData;
-    } else {
-        finalData.pregnancy = null; 
-    }
-
-    if (isFemale && isNursing) {
-        finalData.lactation = nursingData;
-    } else {
-        finalData.lactation = null;
-    }
-
+    if (isFemale && isPregnant) finalData.pregnancy = pregnancyData; else finalData.pregnancy = null; 
+    if (isFemale && isNursing) finalData.lactation = nursingData; else finalData.lactation = null;
     onSave(horse ? { ...horse, ...finalData } : finalData);
     onClose();
   };
-
   return (
     <div className="fixed inset-0 bg-black/90 backdrop-blur-sm flex justify-center items-center z-[60] p-4 text-right">
       <div className="bg-gray-900 rounded-[2rem] shadow-2xl w-full max-w-2xl border border-gray-800 max-h-[90vh] flex flex-col overflow-hidden">
         <div className="p-6 border-b border-gray-800 bg-gray-900">
           <div className="flex justify-between items-center mb-6">
             <h2 className="text-2xl font-black text-white flex items-center gap-3">
-              <div className="p-2 bg-amber-500/10 rounded-lg border border-amber-500/20">
-                  <HorseIcon className="w-6 h-6 text-amber-500" />
-              </div>
+              <div className="p-2 bg-amber-500/10 rounded-lg border border-amber-500/20"><HorseIcon className="w-6 h-6 text-amber-500" /></div>
               {horse ? 'تحديث بيانات الحصان' : 'تسجيل حصان جديد'}
             </h2>
-            <button onClick={onClose} className="text-gray-500 hover:text-white transition-colors">
-              <XMarkIcon className="w-6 h-6" />
-            </button>
+            <button onClick={onClose} className="text-gray-500 hover:text-white transition-colors"><XMarkIcon className="w-6 h-6" /></button>
           </div>
-          
           <div className="flex gap-2 p-1 bg-gray-800 rounded-xl overflow-x-auto">
             <button onClick={() => setActiveTab('basic')} className={`flex-1 min-w-[100px] py-2 rounded-lg font-bold text-sm transition-all ${activeTab === 'basic' ? 'bg-amber-500 text-white shadow-lg' : 'text-gray-400 hover:text-white'}`}>البيانات الأساسية</button>
             <button onClick={() => setActiveTab('details')} className={`flex-1 min-w-[100px] py-2 rounded-lg font-bold text-sm transition-all ${activeTab === 'details' ? 'bg-amber-500 text-white shadow-lg' : 'text-gray-400 hover:text-white'}`}>النسب واللون</button>
-            {isFemale && (
-                <button onClick={() => setActiveTab('reproduction')} className={`flex-1 min-w-[100px] py-2 rounded-lg font-bold text-sm transition-all ${activeTab === 'reproduction' ? 'bg-pink-600 text-white shadow-lg' : 'text-gray-400 hover:text-white'}`}>الحالة الإنجابية</button>
-            )}
+            {isFemale && (<button onClick={() => setActiveTab('reproduction')} className={`flex-1 min-w-[100px] py-2 rounded-lg font-bold text-sm transition-all ${activeTab === 'reproduction' ? 'bg-pink-600 text-white shadow-lg' : 'text-gray-400 hover:text-white'}`}>الحالة الإنجابية</button>)}
           </div>
         </div>
-
         <form onSubmit={handleSubmit} className="flex-1 overflow-y-auto custom-scrollbar p-6">
           {activeTab === 'basic' && (
             <div className="space-y-5 animate-fade-in">
@@ -529,7 +424,6 @@ const HorseFormModal = ({ horse, onClose, onSave }: { horse?: Horse; onClose: ()
                     <input value={formData.number} onChange={e => setFormData({...formData, number: e.target.value})} className="w-full p-3.5 bg-gray-800 border border-gray-700 rounded-xl text-amber-500 font-mono font-bold focus:border-amber-500 outline-none" required />
                   </div>
               </div>
-
               <div className="space-y-1.5">
                 <label className="text-xs font-black text-gray-500">الجنس</label>
                 <div className="grid grid-cols-4 gap-2">
@@ -541,28 +435,27 @@ const HorseFormModal = ({ horse, onClose, onSave }: { horse?: Horse; onClose: ()
                     ))}
                 </div>
               </div>
-
               <div className="space-y-1.5">
                 <label className="text-xs font-black text-gray-500">الكتيبة / الوحدة</label>
                 <select value={formData.battalion} onChange={e => setFormData({...formData, battalion: e.target.value as any})} className="w-full p-3.5 bg-gray-800 border border-gray-700 rounded-xl text-white font-bold outline-none">
                     {BATTALIONS.map(b => <option key={b} value={b}>{b}</option>)}
                 </select>
               </div>
-
               <div className="space-y-1.5">
-                <label className="text-xs font-black text-gray-500">الرسن (Strain)</label>
-                <input value={formData.rasan} onChange={e => setFormData({...formData, rasan: e.target.value})} placeholder="مثلاً: صقلاوي جدراني" className="w-full p-3.5 bg-gray-800 border border-gray-700 rounded-xl text-white font-bold outline-none" />
+                <label className="text-xs font-black text-gray-500">الحالة الافتراضية</label>
+                <select value={formData.status} onChange={e => setFormData({...formData, status: e.target.value as any})} className="w-full p-3.5 bg-gray-800 border border-gray-700 rounded-xl text-white font-bold outline-none">
+                    <option value="healthy">سليم</option>
+                    <option value="monitoring">متابعة</option>
+                </select>
               </div>
             </div>
           )}
-          
           {activeTab === 'details' && (
             <div className="space-y-5 animate-fade-in">
               <div className="space-y-1.5">
                 <label className="text-xs font-black text-gray-500">السلالة (Breed)</label>
-                <input value={formData.breed} onChange={e => setFormData({...formData, breed: e.target.value})} placeholder="مثلاً: خيل عربي أصيل" className="w-full p-3.5 bg-gray-800 border border-gray-700 rounded-xl text-white font-bold outline-none" />
+                <input value={formData.breed} onChange={e => setFormData({...formData, breed: e.target.value})} className="w-full p-3.5 bg-gray-800 border border-gray-700 rounded-xl text-white font-bold outline-none" />
               </div>
-              
               <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-1.5">
                     <label className="text-xs font-black text-gray-500">اللون</label>
@@ -573,151 +466,107 @@ const HorseFormModal = ({ horse, onClose, onSave }: { horse?: Horse; onClose: ()
                     <DateInput value={formData.dateOfBirth} onChange={val => setFormData({...formData, dateOfBirth: val})} />
                   </div>
               </div>
-
               <div className="space-y-1.5">
                 <label className="text-xs font-black text-gray-500">رقم الميكروشيب</label>
                 <input value={formData.microchipNumber} onChange={e => setFormData({...formData, microchipNumber: e.target.value})} className="w-full p-3.5 bg-gray-800 border border-gray-700 rounded-xl text-cyan-400 font-mono font-bold outline-none" />
               </div>
             </div>
           )}
-
           {activeTab === 'reproduction' && isFemale && (
               <div className="space-y-8 animate-fade-in">
-                  {/* Pregnancy Section */}
                   <div className={`p-4 rounded-2xl border transition-colors ${isPregnant ? 'bg-pink-500/5 border-pink-500/30' : 'bg-gray-800 border-gray-700'}`}>
-                      <div className="flex items-center justify-between mb-4">
-                          <label className="flex items-center gap-3 cursor-pointer">
-                                <div className={`w-6 h-6 rounded flex items-center justify-center border transition-all ${isPregnant ? 'bg-pink-500 border-pink-500' : 'border-gray-500'}`}>
-                                    {isPregnant && <CheckIcon className="w-4 h-4 text-white" />}
-                                </div>
-                                <input type="checkbox" className="hidden" checked={isPregnant} onChange={e => setIsPregnant(e.target.checked)} />
-                                <span className={`font-bold ${isPregnant ? 'text-pink-400' : 'text-gray-400'}`}>الفرس عشار (حامل)</span>
-                          </label>
-                      </div>
-                      
+                      <label className="flex items-center gap-3 cursor-pointer mb-4">
+                          <div className={`w-6 h-6 rounded flex items-center justify-center border transition-all ${isPregnant ? 'bg-pink-500 border-pink-500' : 'border-gray-500'}`}>{isPregnant && <CheckIcon className="w-4 h-4 text-white" />}</div>
+                          <input type="checkbox" className="hidden" checked={isPregnant} onChange={e => setIsPregnant(e.target.checked)} />
+                          <span className={`font-bold ${isPregnant ? 'text-pink-400' : 'text-gray-400'}`}>الفرس عشار (حامل)</span>
+                      </label>
                       {isPregnant && (
                           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pl-2 border-r-2 border-pink-500/20 mr-1">
-                              <div className="space-y-1.5">
-                                  <label className="text-xs font-black text-gray-500">تاريخ التلقيح</label>
-                                  <DateInput 
-                                    value={pregnancyData.conceptionDate} 
-                                    onChange={val => setPregnancyData(prev => ({...prev, conceptionDate: val}))} 
-                                    required={isPregnant} 
-                                  />
-                              </div>
-                              <div className="space-y-1.5">
-                                  <label className="text-xs font-black text-gray-500">تاريخ الولادة المتوقع</label>
-                                  <DateInput 
-                                    value={pregnancyData.expectedDueDate} 
-                                    onChange={val => setPregnancyData(prev => ({...prev, expectedDueDate: val}))} 
-                                    required={isPregnant} 
-                                  />
-                              </div>
-                              <div className="col-span-full space-y-1.5">
-                                  <label className="text-xs font-black text-gray-500">ملاحظات الحمل</label>
-                                  <input value={pregnancyData.notes} onChange={e => setPregnancyData({...pregnancyData, notes: e.target.value})} placeholder="اسم الفحل، تفاصيل أخرى..." className="w-full p-3 bg-gray-900/50 border border-gray-700 rounded-lg text-white" />
-                              </div>
+                              <div className="space-y-1.5"><label className="text-xs font-black text-gray-500">تاريخ التلقيح</label><DateInput value={pregnancyData.conceptionDate} onChange={val => setPregnancyData(prev => ({...prev, conceptionDate: val}))} required={isPregnant} /></div>
+                              <div className="space-y-1.5"><label className="text-xs font-black text-gray-500">تاريخ الولادة المتوقع</label><DateInput value={pregnancyData.expectedDueDate} onChange={val => setPregnancyData(prev => ({...prev, expectedDueDate: val}))} required={isPregnant} /></div>
+                              <div className="col-span-full space-y-1.5"><label className="text-xs font-black text-gray-500">ملاحظات الحمل</label><input value={pregnancyData.notes} onChange={e => setPregnancyData({...pregnancyData, notes: e.target.value})} className="w-full p-3 bg-gray-900/50 border border-gray-700 rounded-lg text-white" /></div>
                           </div>
                       )}
                   </div>
-
-                  {/* Lactation Section */}
                   <div className={`p-4 rounded-2xl border transition-colors ${isNursing ? 'bg-blue-500/5 border-blue-500/30' : 'bg-gray-800 border-gray-700'}`}>
-                      <div className="flex items-center justify-between mb-4">
-                          <label className="flex items-center gap-3 cursor-pointer">
-                                <div className={`w-6 h-6 rounded flex items-center justify-center border transition-all ${isNursing ? 'bg-blue-500 border-blue-500' : 'border-gray-500'}`}>
-                                    {isNursing && <CheckIcon className="w-4 h-4 text-white" />}
-                                </div>
-                                <input type="checkbox" className="hidden" checked={isNursing} onChange={e => setIsNursing(e.target.checked)} />
-                                <span className={`font-bold ${isNursing ? 'text-blue-400' : 'text-gray-400'}`}>الفرس مرضعة</span>
-                          </label>
-                      </div>
-                      
+                      <label className="flex items-center gap-3 cursor-pointer mb-4">
+                          <div className={`w-6 h-6 rounded flex items-center justify-center border transition-all ${isNursing ? 'bg-blue-500 border-blue-500' : 'border-gray-500'}`}>{isNursing && <CheckIcon className="w-4 h-4 text-white" />}</div>
+                          <input type="checkbox" className="hidden" checked={isNursing} onChange={e => setIsNursing(e.target.checked)} />
+                          <span className={`font-bold ${isNursing ? 'text-blue-400' : 'text-gray-400'}`}>الفرس مرضعة</span>
+                      </label>
                       {isNursing && (
                           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pl-2 border-r-2 border-blue-500/20 mr-1">
-                              <div className="space-y-1.5 col-span-full">
-                                  <label className="text-xs font-black text-gray-500">اسم المهر</label>
-                                  <input value={nursingData.foalName} onChange={e => setNursingData({...nursingData, foalName: e.target.value})} className="w-full p-3 bg-gray-900/50 border border-gray-700 rounded-lg text-white font-bold" required={isNursing} />
-                              </div>
-                              <div className="space-y-1.5">
-                                  <label className="text-xs font-black text-gray-500">تاريخ الولادة (بدء الرضاعة)</label>
-                                  <DateInput 
-                                    value={nursingData.startDate} 
-                                    onChange={val => setNursingData(prev => ({...prev, startDate: val}))} 
-                                    required={isNursing} 
-                                  />
-                              </div>
-                              <div className="space-y-1.5">
-                                  <label className="text-xs font-black text-gray-500">تاريخ الفطام المتوقع</label>
-                                  <DateInput 
-                                    value={nursingData.expectedWeaningDate} 
-                                    onChange={val => setNursingData(prev => ({...prev, expectedWeaningDate: val}))} 
-                                    required={isNursing} 
-                                  />
-                              </div>
+                              <div className="space-y-1.5 col-span-full"><label className="text-xs font-black text-gray-500">اسم المهر</label><input value={nursingData.foalName} onChange={e => setNursingData({...nursingData, foalName: e.target.value})} className="w-full p-3 bg-gray-900/50 border border-gray-700 rounded-lg text-white font-bold" required={isNursing} /></div>
+                              <div className="space-y-1.5"><label className="text-xs font-black text-gray-500">تاريخ الولادة</label><DateInput value={nursingData.startDate} onChange={val => setNursingData(prev => ({...prev, startDate: val}))} required={isNursing} /></div>
+                              <div className="space-y-1.5"><label className="text-xs font-black text-gray-500">تاريخ الفطام المتوقع</label><DateInput value={nursingData.expectedWeaningDate} onChange={val => setNursingData(prev => ({...prev, expectedWeaningDate: val}))} required={isNursing} /></div>
                           </div>
                       )}
                   </div>
               </div>
           )}
         </form>
-
-        <div className="p-4 bg-gray-900 border-t border-gray-800">
-            <button onClick={handleSubmit} className="w-full py-4 bg-amber-500 hover:bg-amber-600 text-white font-black rounded-xl shadow-lg shadow-amber-500/20 transition-all text-lg">
-                {horse ? 'حفظ التعديلات' : 'إضافة للقوة'}
-            </button>
-        </div>
+        <div className="p-4 bg-gray-900 border-t border-gray-800"><button onClick={handleSubmit} className="w-full py-4 bg-amber-500 hover:bg-amber-600 text-white font-black rounded-xl shadow-lg shadow-amber-500/20 transition-all text-lg">{horse ? 'حفظ التعديلات' : 'إضافة للقوة'}</button></div>
       </div>
     </div>
   );
 };
 
 // --- Main Page ---
-const HorsesPage: React.FC<HorsesPageProps> = ({ horses, vaccinations, onAddHorse, onEditHorse, onDeleteHorse, globalBattalionFilter, initialSearchTerm }) => {
+const HorsesPage: React.FC<HorsesPageProps> = ({ horses, vaccinations, clinicLog, onAddHorse, onEditHorse, onDeleteHorse, globalBattalionFilter, initialSearchTerm }) => {
   const [displaySearch, setDisplaySearch] = useState(initialSearchTerm || '');
   const [debouncedSearch, setDebouncedSearch] = useState(initialSearchTerm || '');
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [editingHorse, setEditingHorse] = useState<Horse | null>(null);
   const [viewingHorse, setViewingHorse] = useState<Horse | null>(null);
   const [deletingHorse, setDeletingHorse] = useState<Horse | null>(null);
+  
+  useEffect(() => { const handler = setTimeout(() => { setDebouncedSearch(displaySearch); }, 300); return () => clearTimeout(handler); }, [displaySearch]);
 
-  // Debounce logic for search to prevent lag
-  useEffect(() => {
-    const handler = setTimeout(() => {
-        setDebouncedSearch(displaySearch);
-    }, 300); // Wait 300ms after last keystroke
+  const effectiveStatuses = useMemo(() => {
+    const map: Record<string, 'healthy' | 'monitoring'> = {};
+    const today = new Date().toISOString().split('T')[0];
 
-    return () => {
-        clearTimeout(handler);
-    };
-  }, [displaySearch]);
+    horses.forEach(horse => {
+        const horseEntries = clinicLog.filter(e => e.horseId === horse.id).sort((a, b) => {
+            const dateComp = b.date.localeCompare(a.date);
+            if (dateComp !== 0) return dateComp;
+            return (b as any).createdAt?.seconds - (a as any).createdAt?.seconds;
+        });
+
+        if (horseEntries.length === 0) {
+            map[horse.id] = horse.status || 'healthy';
+        } else {
+            const latest = horseEntries[0];
+            if (latest.status === 'monitoring') {
+                map[horse.id] = 'monitoring';
+            } else if (latest.status === 'recovered') {
+                const rDate = latest.recoveryDate || latest.date;
+                // الشفاء يطبق من اليوم التالي (Today must be strictly greater than recovery date)
+                if (today > rDate) {
+                    map[horse.id] = 'healthy';
+                } else {
+                    map[horse.id] = 'monitoring';
+                }
+            } else {
+                map[horse.id] = 'healthy';
+            }
+        }
+    });
+    return map;
+  }, [horses, clinicLog]);
 
   const filteredHorses = useMemo(() => {
     if (!horses) return [];
     const filter = debouncedSearch.toLowerCase().trim();
     let list = globalBattalionFilter === 'الكل' ? horses : horses.filter(h => h.battalion === globalBattalionFilter);
-    
-    if (filter) {
-        list = list.filter(h => 
-            (h.name || '').toLowerCase().includes(filter) || 
-            (h.number || '').includes(filter) || 
-            (h.rasan || '').toLowerCase().includes(filter) ||
-            (h.breed || '').toLowerCase().includes(filter)
-        );
-    }
+    if (filter) list = list.filter(h => (h.name || '').toLowerCase().includes(filter) || (h.number || '').includes(filter) || (h.rasan || '').toLowerCase().includes(filter) || (h.breed || '').toLowerCase().includes(filter));
     return list;
   }, [horses, globalBattalionFilter, debouncedSearch]);
 
   const handleEdit = useCallback((h: Horse) => setEditingHorse(h), []);
   const handleView = useCallback((h: Horse) => setViewingHorse(h), []);
   const handleDeleteClick = useCallback((h: Horse) => setDeletingHorse(h), []);
-  
-  const confirmDelete = () => {
-      if (deletingHorse) {
-          onDeleteHorse(deletingHorse.id);
-          setDeletingHorse(null);
-      }
-  };
+  const confirmDelete = () => { if (deletingHorse) { onDeleteHorse(deletingHorse.id); setDeletingHorse(null); } };
 
   return (
     <div className="space-y-6 pb-20 text-right">
@@ -725,61 +574,31 @@ const HorsesPage: React.FC<HorsesPageProps> = ({ horses, vaccinations, onAddHors
       {editingHorse && <HorseFormModal horse={editingHorse} onClose={() => setEditingHorse(null)} onSave={onEditHorse} />}
       {viewingHorse && <HorseViewModal horse={viewingHorse} vaccinations={vaccinations} onClose={() => setViewingHorse(null)} />}
       {deletingHorse && <ConfirmDeleteHorseModal horse={deletingHorse} onClose={() => setDeletingHorse(null)} onConfirm={confirmDelete} />}
-
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
         <div>
-          <h1 className="text-3xl font-black text-white flex items-center gap-3">
-              <HorseIcon className="w-8 h-8 text-amber-500" />
-              سجلات الخيول
-          </h1>
+          <h1 className="text-3xl font-black text-white flex items-center gap-3"><HorseIcon className="w-8 h-8 text-amber-500" />سجلات الخيول</h1>
           <p className="text-gray-400 mt-1 font-medium text-sm">قاعدة البيانات المركزية لخيول الوحدة.</p>
         </div>
-        <button 
-          onClick={() => setIsAddModalOpen(true)}
-          className="bg-amber-500 text-white px-6 py-3 rounded-xl font-black shadow-lg shadow-amber-500/20 hover:bg-amber-600 transition-all flex items-center gap-2 active:scale-95"
-        >
-          <PlusIcon className="w-5 h-5" />
-          إضافة حصان جديد
-        </button>
+        <button onClick={() => setIsAddModalOpen(true)} className="bg-amber-500 text-white px-6 py-3 rounded-xl font-black shadow-lg shadow-amber-500/20 hover:bg-amber-600 transition-all flex items-center gap-2 active:scale-95"><PlusIcon className="w-5 h-5" />إضافة حصان جديد</button>
       </div>
-      
-      <div className="relative group">
-          <input
-              type="text"
-              placeholder="بحث شامل (الاسم، الرقم، الرسن، السلالة)..."
-              value={displaySearch}
-              onChange={(e) => setDisplaySearch(e.target.value)}
-              className="w-full p-5 bg-gray-800 border border-gray-700 rounded-2xl text-white placeholder-gray-500 focus:border-amber-500 outline-none transition-all shadow-lg text-lg font-bold"
-          />
-      </div>
-
+      <div className="relative group"><input type="text" placeholder="بحث شامل..." value={displaySearch} onChange={(e) => setDisplaySearch(e.target.value)} className="w-full p-5 bg-gray-800 border border-gray-700 rounded-2xl text-white placeholder-gray-500 focus:border-amber-500 outline-none transition-all shadow-lg text-lg font-bold" /></div>
       <div className="bg-gray-800 rounded-[2rem] shadow-2xl overflow-hidden border border-gray-700">
         <div className="overflow-x-auto">
             <table className="min-w-full divide-y divide-gray-700 text-right">
             <thead className="bg-gray-900/50">
-                <tr className="text-xs font-black text-gray-400 uppercase tracking-widest">
-                    <th className="px-4 py-4">الرقم</th>
-                    <th className="px-4 py-4 w-1/2">بيانات الحصان</th>
-                    <th className="px-4 py-4 text-center">الموقف الصحي</th>
-                    <th className="px-4 py-4 text-left">إجراءات</th>
-                </tr>
+                <tr className="text-xs font-black text-gray-400 uppercase tracking-widest"><th className="px-4 py-4">الرقم</th><th className="px-4 py-4 w-1/2">بيانات الحصان</th><th className="px-4 py-4 text-center">الموقف الصحي</th><th className="px-4 py-4 text-left">إجراءات</th></tr>
             </thead>
             <tbody className="divide-y divide-gray-700/50">
                 {filteredHorses.length > 0 ? filteredHorses.map((horse) => (
-                  <HorseRow 
-                    key={horse.id} 
-                    horse={horse} 
-                    onView={handleView} 
-                    onEdit={handleEdit} 
-                    onDelete={() => handleDeleteClick(horse)} 
-                  />
-                )) : (
-                    <tr>
-                        <td colSpan={4} className="text-center py-10 text-gray-500">
-                            لا توجد نتائج مطابقة.
-                        </td>
-                    </tr>
-                )}
+                    <HorseRow 
+                        key={horse.id} 
+                        horse={horse} 
+                        effectiveStatus={effectiveStatuses[horse.id] || 'healthy'}
+                        onView={handleView} 
+                        onEdit={handleEdit} 
+                        onDelete={() => handleDeleteClick(horse)} 
+                    />
+                )) : (<tr><td colSpan={4} className="text-center py-10 text-gray-500">لا توجد نتائج مطابقة.</td></tr>)}
             </tbody>
             </table>
         </div>

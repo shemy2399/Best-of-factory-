@@ -33,7 +33,7 @@ export interface MedicalRecordEntry {
   diagnosis: string;
   treatment: string;
   notes?: string;
-  status: 'healthy' | 'monitoring' | 'sick' | 'recovered';
+  status: 'healthy' | 'monitoring' | 'recovered';
   recoveryDate?: string;
   followUpDate?: string;
   followUpNotes?: string;
@@ -61,7 +61,7 @@ export interface Horse {
   breed: string;
   color: string;
   battalion: 'الكتيبة الاولى' | 'الكتيبة الثانية' | 'الكتيبة الثالثة' | 'نادي الفروسية';
-  status: 'healthy' | 'monitoring' | 'sick';
+  status: 'healthy' | 'monitoring';
   medicalHistory: MedicalRecordEntry[];
   createdAt: string;
   pregnancy?: {

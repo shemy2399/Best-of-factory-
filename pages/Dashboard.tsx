@@ -36,33 +36,46 @@ const Dashboard: React.FC<DashboardProps> = ({ horses, medications, clinicLog, g
     }
     const filteredHorses = horses.filter(h => h.battalion === globalBattalionFilter);
     const filteredMedications = medications.filter(m => m.battalion === globalBattalionFilter);
-    const horseIdsInBattalion = new Set(filteredHorses.map(h => h.id));
+    // Add explicit type to Set to prevent inference issues
+    const horseIdsInBattalion = new Set<string>(filteredHorses.map(h => h.id));
     const filteredClinicLog = clinicLog.filter(entry => horseIdsInBattalion.has(entry.horseId));
     return { filteredHorses, filteredMedications, filteredClinicLog };
   }, [horses, medications, clinicLog, globalBattalionFilter]);
 
   const { filteredHorses, filteredMedications, filteredClinicLog } = filteredData;
 
-  // الحساب اللحظي للحالات من دفتر العيادة (المصدر الوحيد للحقيقة)
   const healthStats = useMemo(() => {
-    const latestStatusByHorse: Record<string, MedicalRecordEntry['status']> = {};
-    
-    // ترتيب السجلات من الأقدم للأحدث لمعرفة الحالة الأخيرة لكل حصان
-    [...filteredClinicLog].sort((a,b) => new Date(a.date).getTime() - new Date(b.date).getTime()).forEach(entry => {
-        latestStatusByHorse[entry.horseId] = entry.status;
+    const today = new Date().toISOString().split('T')[0];
+    // Explicitly type the Set as Set<string> to avoid "unknown" type errors
+    const horseIds = new Set<string>(filteredHorses.map(h => h.id));
+    const activeMonitoringHorses = new Set<string>();
+
+    // Explicitly type id as string to avoid parameter of type 'unknown' errors
+    horseIds.forEach((id: string) => {
+        const horseEntries = clinicLog.filter(e => e.horseId === id).sort((a, b) => {
+            const dateComp = b.date.localeCompare(a.date);
+            if (dateComp !== 0) return dateComp;
+            return (b as any).createdAt?.seconds - (a as any).createdAt?.seconds;
+        });
+
+        if (horseEntries.length > 0) {
+            const latest = horseEntries[0];
+            if (latest.status === 'monitoring') {
+                activeMonitoringHorses.add(id);
+            } else if (latest.status === 'recovered') {
+                const rDate = latest.recoveryDate || latest.date;
+                // لا يزال تحت المتابعة إذا كان اليوم ليس بعد تاريخ الشفاء
+                if (!(today > rDate)) {
+                    activeMonitoringHorses.add(id);
+                }
+            }
+        }
     });
 
-    const counts = { sick: 0, monitoring: 0 };
-    Object.values(latestStatusByHorse).forEach(status => {
-        if (status === 'sick') counts.sick++;
-        if (status === 'monitoring') counts.monitoring++;
-    });
-
-    return counts;
-  }, [filteredClinicLog]);
+    return { monitoring: activeMonitoringHorses.size };
+  }, [filteredHorses, clinicLog]);
 
   const totalHorses = filteredHorses.length;
-  const sickCases = healthStats.sick;
   const monitoringCases = healthStats.monitoring;
   const lowStockMeds = filteredMedications.filter(m => m.quantity < 10).length;
 
@@ -71,19 +84,12 @@ const Dashboard: React.FC<DashboardProps> = ({ horses, medications, clinicLog, g
     today.setHours(0, 0, 0, 0);
     const sixtyDaysFromNow = new Date();
     sixtyDaysFromNow.setDate(today.getDate() + 60);
-
     const alerts: Record<string, { name: string; expiryDate: string; status: 'expired' | 'expiring_soon' }[]> = {};
-
     filteredMedications.forEach(med => {
       const expiryDate = new Date(med.expiryDate);
       let status: 'expired' | 'expiring_soon' | null = null;
-
-      if (expiryDate < today) {
-        status = 'expired';
-      } else if (expiryDate <= sixtyDaysFromNow) {
-        status = 'expiring_soon';
-      }
-
+      if (expiryDate < today) status = 'expired';
+      else if (expiryDate <= sixtyDaysFromNow) status = 'expiring_soon';
       if (status) {
         if (!alerts[med.battalion]) alerts[med.battalion] = [];
         alerts[med.battalion].push({ name: med.name, expiryDate: med.expiryDate, status });
@@ -106,15 +112,12 @@ const Dashboard: React.FC<DashboardProps> = ({ horses, medications, clinicLog, g
         </div>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         <button onClick={() => setActivePage('horses')} className="text-right w-full transition-transform active:scale-95">
           <StatCard title="أصل القوة" value={totalHorses} icon={<HorseIcon className="w-8 h-8 text-amber-400"/>} description="إجمالي الخيول" />
         </button>
         <button onClick={() => setActivePage('clinic')} className="text-right w-full transition-transform active:scale-95">
-          <StatCard title="خيول مريضة" value={sickCases} icon={<ClinicIcon className="w-8 h-8 text-red-500"/>} description="حسب دفتر العيادة" colorClass="text-red-500" />
-        </button>
-        <button onClick={() => setActivePage('clinic')} className="text-right w-full transition-transform active:scale-95">
-          <StatCard title="حالات متابعة" value={monitoringCases} icon={<ReportsIcon className="w-8 h-8 text-amber-500"/>} description="حسب دفتر العيادة" colorClass="text-amber-500" />
+          <StatCard title="تحت المتابعة" value={monitoringCases} icon={<ClinicIcon className="w-8 h-8 text-amber-500"/>} description="في عنبر العيادة" colorClass="text-amber-500" />
         </button>
         <button onClick={() => setActivePage('pharmacy')} className="text-right w-full transition-transform active:scale-95">
           <StatCard title="نواقص المخزون" value={lowStockMeds} icon={<PharmacyIcon className="w-8 h-8 text-cyan-400"/>} description="أدوية أوشكت على النفاد" colorClass="text-cyan-400" />
@@ -155,7 +158,6 @@ const Dashboard: React.FC<DashboardProps> = ({ horses, medications, clinicLog, g
             </h2>
             {Object.keys(expiryAlerts).length > 0 ? (
                 <div className="space-y-4 max-h-[300px] overflow-y-auto custom-scrollbar">
-                    {/* FIX: Cast Object.entries to properly typed array to solve 'unknown' map error */}
                     {(Object.entries(expiryAlerts) as [string, { name: string; expiryDate: string; status: 'expired' | 'expiring_soon' }[]][]).map(([battalion, meds]) => (
                         <div key={battalion} className="space-y-2">
                             <h3 className="text-[10px] font-black text-gray-500 uppercase tracking-widest mb-2">{battalion}</h3>
