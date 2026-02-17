@@ -6,8 +6,6 @@ if (!process.env.API_KEY) {
     throw new Error("API_KEY environment variable not set.");
 }
 
-const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
-
 const systemInstruction = `You are an expert equine veterinary diagnostic assistant. Your knowledge is based on established, peer-reviewed veterinary textbooks and scientific journals such as 'Equine Internal Medicine' by Reed, Bayly, & Sellon, 'Adams and Stashak's Lameness in Horses', and 'Current Therapy in Equine Medicine'. When a user provides a set of clinical signs, you must:
 1. **Generate a list of differential diagnoses**, ordered from most to least likely.
 2. For each diagnosis, **provide a brief justification** based on the presented signs.
@@ -18,6 +16,9 @@ const systemInstruction = `You are an expert equine veterinary diagnostic assist
 
 export const getDiagnosticAssistance = async (symptoms: string): Promise<string> => {
     try {
+        // FIX: Re-initialize GoogleGenAI inside the function call to ensure the most recent context/API key is used.
+        const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+        
         const response = await ai.models.generateContent({
             // FIX: Use 'gemini-3-pro-preview' for complex text tasks like medical diagnostics.
             model: 'gemini-3-pro-preview',

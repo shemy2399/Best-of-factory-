@@ -1,3 +1,4 @@
+
 import React, { useMemo } from 'react';
 import { Horse, Medication, MedicalRecordEntry, Page } from '../types';
 import { ReportsIcon, HorseIcon, PharmacyIcon, ClinicIcon } from '../components/icons';
@@ -10,22 +11,26 @@ interface DashboardProps {
   setActivePage: (page: Page) => void;
 }
 
-const StatCard: React.FC<{ title: string; value: string | number; icon: React.ReactNode; description: string;}> = ({ title, value, icon, description }) => (
-  <div className="bg-gray-700 p-6 rounded-xl shadow-lg flex items-center space-x-4 space-x-reverse h-full hover:bg-gray-600/50 transition-colors">
-    <div className="bg-gray-800 p-4 rounded-full">
+const StatCard: React.FC<{ title: string; value: string | number; icon: React.ReactNode; description: string; colorClass?: string; }> = ({ title, value, icon, description, colorClass = "text-white" }) => (
+  <div className="bg-gray-700 p-6 rounded-xl shadow-lg flex items-center space-x-4 space-x-reverse h-full hover:bg-gray-600/50 transition-colors border border-gray-600/50">
+    <div className="bg-gray-800 p-4 rounded-full shadow-inner">
       {icon}
     </div>
     <div>
       <h3 className="text-gray-400 text-sm font-medium">{title}</h3>
-      <p className="text-3xl font-bold text-white mt-1">{value}</p>
-      <p className="text-gray-400 text-sm mt-1">{description}</p>
+      <p className={`text-3xl font-black mt-1 ${colorClass}`}>{value}</p>
+      <p className="text-gray-400 text-[10px] mt-1 uppercase tracking-wider font-bold">{description}</p>
     </div>
   </div>
 );
 
 const Dashboard: React.FC<DashboardProps> = ({ horses, medications, clinicLog, globalBattalionFilter, setActivePage }) => {
 
-  const filteredData = useMemo(() => {
+  const filteredData = useMemo<{
+    filteredHorses: Horse[];
+    filteredMedications: Medication[];
+    filteredClinicLog: ({ horseName: string; horseId: string } & MedicalRecordEntry)[];
+  }>(() => {
     if (globalBattalionFilter === 'الكل') {
         return { filteredHorses: horses, filteredMedications: medications, filteredClinicLog: clinicLog };
     }
@@ -38,8 +43,27 @@ const Dashboard: React.FC<DashboardProps> = ({ horses, medications, clinicLog, g
 
   const { filteredHorses, filteredMedications, filteredClinicLog } = filteredData;
 
+  // الحساب اللحظي للحالات من دفتر العيادة (المصدر الوحيد للحقيقة)
+  const healthStats = useMemo(() => {
+    const latestStatusByHorse: Record<string, MedicalRecordEntry['status']> = {};
+    
+    // ترتيب السجلات من الأقدم للأحدث لمعرفة الحالة الأخيرة لكل حصان
+    [...filteredClinicLog].sort((a,b) => new Date(a.date).getTime() - new Date(b.date).getTime()).forEach(entry => {
+        latestStatusByHorse[entry.horseId] = entry.status;
+    });
+
+    const counts = { sick: 0, monitoring: 0 };
+    Object.values(latestStatusByHorse).forEach(status => {
+        if (status === 'sick') counts.sick++;
+        if (status === 'monitoring') counts.monitoring++;
+    });
+
+    return counts;
+  }, [filteredClinicLog]);
+
   const totalHorses = filteredHorses.length;
-  const monitoringCases = filteredHorses.filter(h => h.status === 'monitoring' || h.status === 'sick').length;
+  const sickCases = healthStats.sick;
+  const monitoringCases = healthStats.monitoring;
   const lowStockMeds = filteredMedications.filter(m => m.quantity < 10).length;
 
   const expiryAlerts = useMemo((): Record<string, { name: string; expiryDate: string; status: 'expired' | 'expiring_soon' }[]> => {
@@ -61,89 +85,97 @@ const Dashboard: React.FC<DashboardProps> = ({ horses, medications, clinicLog, g
       }
 
       if (status) {
-        if (!alerts[med.battalion]) {
-          alerts[med.battalion] = [];
-        }
-        alerts[med.battalion].push({
-          name: med.name,
-          expiryDate: med.expiryDate,
-          status: status,
-        });
+        if (!alerts[med.battalion]) alerts[med.battalion] = [];
+        alerts[med.battalion].push({ name: med.name, expiryDate: med.expiryDate, status });
       }
     });
-    
-    for (const battalion in alerts) {
-        alerts[battalion].sort((a, b) => new Date(a.expiryDate).getTime() - new Date(b.expiryDate).getTime());
-    }
-
     return alerts;
   }, [filteredMedications]);
   
   const pageTitle = globalBattalionFilter === 'الكل' ? 'لوحة التحكم الشاملة' : `لوحة تحكم: ${globalBattalionFilter}`;
 
   return (
-    <div className="space-y-8">
-      <div>
-        <h1 className="text-4xl font-bold text-white">{pageTitle}</h1>
-        <p className="text-gray-400 mt-2">نظرة عامة حية على عمليات قطاع الخيالة.</p>
+    <div className="space-y-8 animate-fade-in">
+      <div className="flex justify-between items-end border-b border-gray-700 pb-6">
+        <div>
+          <h1 className="text-4xl font-black text-white tracking-tighter">{pageTitle}</h1>
+          <p className="text-gray-400 mt-2 font-medium">مزامنة حية ومباشرة مع دفتر العيادة.</p>
+        </div>
+        <div className="text-left">
+           <span className="px-3 py-1 bg-green-500/10 text-green-500 border border-green-500/20 rounded-lg text-xs font-black uppercase tracking-widest">Clinic Sync Active</span>
+        </div>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        <button onClick={() => setActivePage('horses')} className="text-right w-full"><StatCard title="أصل القوة" value={totalHorses} icon={<HorseIcon className="w-8 h-8 text-amber-400"/>} description="إجمالي الخيول المسجلة"/></button>
-        <button onClick={() => setActivePage('horses')} className="text-right w-full"><StatCard title="حالات المتابعة" value={monitoringCases} icon={<ClinicIcon className="w-8 h-8 text-amber-400"/>} description="خيول مريضة أو تحت الملاحظة"/></button>
-        <button onClick={() => setActivePage('pharmacy')} className="text-right w-full"><StatCard title="نواقص المخزون" value={lowStockMeds} icon={<PharmacyIcon className="w-8 h-8 text-amber-400"/>} description="أصناف دوائية على وشك النفاد" /></button>
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+        <button onClick={() => setActivePage('horses')} className="text-right w-full transition-transform active:scale-95">
+          <StatCard title="أصل القوة" value={totalHorses} icon={<HorseIcon className="w-8 h-8 text-amber-400"/>} description="إجمالي الخيول" />
+        </button>
+        <button onClick={() => setActivePage('clinic')} className="text-right w-full transition-transform active:scale-95">
+          <StatCard title="خيول مريضة" value={sickCases} icon={<ClinicIcon className="w-8 h-8 text-red-500"/>} description="حسب دفتر العيادة" colorClass="text-red-500" />
+        </button>
+        <button onClick={() => setActivePage('clinic')} className="text-right w-full transition-transform active:scale-95">
+          <StatCard title="حالات متابعة" value={monitoringCases} icon={<ReportsIcon className="w-8 h-8 text-amber-500"/>} description="حسب دفتر العيادة" colorClass="text-amber-500" />
+        </button>
+        <button onClick={() => setActivePage('pharmacy')} className="text-right w-full transition-transform active:scale-95">
+          <StatCard title="نواقص المخزون" value={lowStockMeds} icon={<PharmacyIcon className="w-8 h-8 text-cyan-400"/>} description="أدوية أوشكت على النفاد" colorClass="text-cyan-400" />
+        </button>
       </div>
       
-       {globalBattalionFilter !== 'الكل' && (
-        <div className="bg-gray-700 p-6 rounded-xl shadow-lg">
-          <h2 className="text-xl font-bold text-white mb-4">تنبيهات انتهاء صلاحية الأدوية (60 يومًا)</h2>
-          {Object.keys(expiryAlerts).length > 0 ? (
-            <div className="space-y-6">
-              {(Object.entries(expiryAlerts) as [string, { name: string; expiryDate: string; status: 'expired' | 'expiring_soon' }[]][]).map(([battalion, meds]) => (
-                <div key={battalion}>
-                  <h3 className="font-semibold text-amber-400 border-b border-gray-600 pb-2 mb-3">{battalion}</h3>
-                  <ul className="space-y-2">
-                    {meds.map((med, index) => (
-                      <li key={index} className="flex justify-between items-center text-sm">
-                        <span className="text-gray-200">{med.name}</span>
-                        <div className="flex items-center gap-3">
-                          <span className="text-gray-400">{med.expiryDate}</span>
-                          {med.status === 'expired' ? (
-                            <span className="px-2 py-0.5 text-xs font-medium text-red-300 bg-red-500/20 rounded-full">منتهي الصلاحية</span>
-                          ) : (
-                            <span className="px-2 py-0.5 text-xs font-medium text-yellow-300 bg-yellow-500/20 rounded-full">قارب على الانتهاء</span>
-                          )}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+        <div className="bg-gray-800 p-6 rounded-[2rem] shadow-xl border border-gray-700/50">
+            <h2 className="text-xl font-black text-white mb-6 flex items-center gap-2">
+                <ClinicIcon className="w-6 h-6 text-amber-500" />
+                أحدث تقارير العيادة
+            </h2>
+            {filteredClinicLog.length > 0 ? (
+                <div className="space-y-4">
+                    {filteredClinicLog.slice(0, 4).map((entry) => (
+                    <div key={entry.id} className="p-4 bg-gray-900/50 rounded-2xl border border-gray-700/50 hover:border-amber-500/30 transition-all group">
+                        <div className="flex justify-between items-start">
+                            <div>
+                                <p className="font-black text-gray-100 group-hover:text-amber-400 transition-colors">{entry.horseName}</p>
+                                <p className="text-sm text-gray-400 mt-1 font-bold">{entry.diagnosis}</p>
+                            </div>
+                            <span className="text-[10px] font-mono text-gray-500 bg-gray-800 px-2 py-1 rounded-lg border border-gray-700">{entry.date}</span>
                         </div>
-                      </li>
+                    </div>
                     ))}
-                  </ul>
                 </div>
-              ))}
-            </div>
-          ) : (
-            <div className="text-center py-10">
-               <p className="text-gray-400">لا توجد أدوية منتهية الصلاحية أو قاربت على الانتهاء في هذه الصيدلية.</p>
-            </div>
-          )}
+            ) : (
+                <div className="text-center py-10">
+                    <p className="text-gray-500 font-bold italic">لا توجد سجلات عيادة حالياً.</p>
+                </div>
+            )}
         </div>
-      )}
 
-      <div className="bg-gray-700 p-6 rounded-xl shadow-lg">
-        <h2 className="text-xl font-bold text-white mb-4">أحدث الحالات المسجلة في العيادة</h2>
-        {filteredClinicLog.length > 0 ? (
-          <ul className="divide-y divide-gray-600">
-            {filteredClinicLog.slice(0, 5).map((entry) => (
-              <li key={entry.id} className="py-4">
-                <p className="font-semibold text-gray-100">{entry.horseName} - <span className="font-normal text-gray-300">{entry.diagnosis}</span></p>
-                <p className="text-sm text-gray-400 mt-1">التاريخ: {entry.date}</p>
-              </li>
-            ))}
-          </ul>
-        ) : (
-          <div className="text-center py-10">
-            <p className="text-gray-400">لا توجد سجلات في العيادة لهذه الكتيبة.</p>
-          </div>
-        )}
+        <div className="bg-gray-800 p-6 rounded-[2rem] shadow-xl border border-gray-700/50">
+            <h2 className="text-xl font-black text-white mb-6 flex items-center gap-2">
+                <PharmacyIcon className="w-6 h-6 text-cyan-500" />
+                تنبيهات انتهاء الصلاحية
+            </h2>
+            {Object.keys(expiryAlerts).length > 0 ? (
+                <div className="space-y-4 max-h-[300px] overflow-y-auto custom-scrollbar">
+                    {/* FIX: Cast Object.entries to properly typed array to solve 'unknown' map error */}
+                    {(Object.entries(expiryAlerts) as [string, { name: string; expiryDate: string; status: 'expired' | 'expiring_soon' }[]][]).map(([battalion, meds]) => (
+                        <div key={battalion} className="space-y-2">
+                            <h3 className="text-[10px] font-black text-gray-500 uppercase tracking-widest mb-2">{battalion}</h3>
+                            {meds.map((med, idx) => (
+                                <div key={idx} className="flex justify-between items-center p-3 bg-gray-900/30 rounded-xl border border-gray-700/30">
+                                    <span className="text-sm font-bold text-gray-200">{med.name}</span>
+                                    <span className={`text-[10px] font-black px-2 py-1 rounded-lg ${med.status === 'expired' ? 'bg-red-500/20 text-red-400' : 'bg-amber-500/20 text-amber-400'}`}>
+                                        {med.expiryDate}
+                                    </span>
+                                </div>
+                            ))}
+                        </div>
+                    ))}
+                </div>
+            ) : (
+                <div className="text-center py-10">
+                    <p className="text-gray-500 font-bold italic">جميع الأدوية صالحة.</p>
+                </div>
+            )}
+        </div>
       </div>
     </div>
   );
