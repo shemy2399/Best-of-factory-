@@ -166,13 +166,9 @@ const App: React.FC = () => {
             }
         }
 
-        const allLogsQ = query(collection(db, "clinicLog"), where("horseId", "==", horseId), orderBy("date", "desc"));
-        const allLogsSnapshot = await getDocs(allLogsQ);
-        const latestHistory = allLogsSnapshot.docs.map(d => ({ id: d.id, ...d.data() } as MedicalRecordEntry));
-
+        // تحديث حالة الحصان فقط
         await updateDoc(doc(db, "horses", horseId), { 
-            status: newMasterStatus,
-            medicalHistory: latestHistory
+            status: newMasterStatus
         });
     } catch (err) {
         console.error("Error syncing horse status:", err);
@@ -265,13 +261,13 @@ const App: React.FC = () => {
                 return <ClinicPage 
                     horses={horses} medications={medications} clinicLog={clinicLog} protocols={protocols} 
                     onAddEntry={async (entry, hId, hName, hNum, addHist) => { 
-                        await addDoc(collection(db, "clinicLog"), { ...entry, horseName: hName, horseNumber: hNum, horseId: hId, createdAt: serverTimestamp() }); 
+                        await addDoc(collection(db, "clinicLog"), { ...entry, horseName: hName, horseNumber: hNum, horseId: hId, createdAt: serverTimestamp(), isPermanent: addHist }); 
                         handleCreateNotification(`حالة عيادة: ${hName}`, 'clinic'); 
                         await syncHorseMasterStatus(hId, entry.status);
                     }} 
                     onEditEntry={async (upd, addHist) => { 
                         const {id, horseId, horseName, horseNumber, ...data} = upd; 
-                        await updateDoc(doc(db, "clinicLog", id), { ...data, updatedAt: serverTimestamp() }); 
+                        await updateDoc(doc(db, "clinicLog", id), { ...data, isPermanent: addHist, updatedAt: serverTimestamp() }); 
                         await syncHorseMasterStatus(horseId, upd.status);
                     }} 
                     onDeleteEntry={async (id, horseId) => {

@@ -4,7 +4,7 @@ import { Horse, Vaccination, MedicalRecordEntry } from '../types';
 import { PlusIcon, PencilIcon, TrashIcon, XMarkIcon, HorseIcon, EyeIcon, BreedingIcon, CheckIcon, ClinicIcon, VaccinationIcon, MedicalRecordsIcon } from '../components/icons'; 
 import DateInput from '../components/DateInput';
 
-type ClinicLogEntry = { horseName: string; horseId: string } & MedicalRecordEntry;
+type ClinicLogEntry = { horseName: string; horseId: string; horseNumber?: string } & MedicalRecordEntry;
 
 interface HorsesPageProps {
   horses: Horse[];
@@ -41,7 +41,7 @@ const StatusBadge = React.memo(({ status }: { status: string }) => {
   );
 });
 
-// --- Optimized Row Component ---
+// --- Row Component ---
 const HorseRow = React.memo(({ horse, effectiveStatus, onView, onEdit, onDelete }: { 
     horse: Horse, 
     effectiveStatus: string,
@@ -109,8 +109,17 @@ const HorseRow = React.memo(({ horse, effectiveStatus, onView, onEdit, onDelete 
 });
 
 // --- Full Medical Record Modal ---
-const HorseViewModal = ({ horse, vaccinations, onClose }: { horse: Horse; vaccinations: Vaccination[]; onClose: () => void }) => {
+const HorseViewModal = ({ horse, vaccinations, clinicLog, onClose }: { horse: Horse; vaccinations: Vaccination[]; clinicLog: ClinicLogEntry[]; onClose: () => void }) => {
   const [activeTab, setActiveTab] = useState<'info' | 'clinic' | 'vaccines' | 'deworming'>('info');
+  
+  // تجميع كافة السجلات الطبية من دفتر العيادة للحصان المحدد
+  // الفلترة هنا تعرض فقط الحالات التي تم وضع علامة "دائم" عليها (isPermanent === true)
+  const fullMedicalHistory = useMemo(() => {
+      return clinicLog
+        .filter(entry => entry.horseId === horse.id && entry.isPermanent === true)
+        .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+  }, [clinicLog, horse.id]);
+
   const horseVaccinations = useMemo(() => vaccinations.filter(v => v.horseId === horse.id && v.type === 'vaccination').sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()), [vaccinations, horse.id]);
   const horseDeworming = useMemo(() => vaccinations.filter(v => v.horseId === horse.id && v.type === 'deworming').sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()), [vaccinations, horse.id]);
 
@@ -142,7 +151,7 @@ const HorseViewModal = ({ horse, vaccinations, onClose }: { horse: Horse; vaccin
           </button>
           <button onClick={() => setActiveTab('clinic')} className={`pb-4 px-6 font-bold text-sm flex items-center gap-2 border-b-2 transition-all ${activeTab === 'clinic' ? 'border-blue-500 text-blue-500' : 'border-transparent text-gray-400 hover:text-white'}`}>
               <ClinicIcon className="w-5 h-5" />
-              سجل العيادة ({horse.medicalHistory ? horse.medicalHistory.length : 0})
+              السجل الطبي الدائم ({fullMedicalHistory.length})
           </button>
           <button onClick={() => setActiveTab('vaccines')} className={`pb-4 px-6 font-bold text-sm flex items-center gap-2 border-b-2 transition-all ${activeTab === 'vaccines' ? 'border-green-500 text-green-500' : 'border-transparent text-gray-400 hover:text-white'}`}>
               <VaccinationIcon className="w-5 h-5" />
@@ -212,9 +221,9 @@ const HorseViewModal = ({ horse, vaccinations, onClose }: { horse: Horse; vaccin
           )}
           {activeTab === 'clinic' && (
               <div className="animate-fade-in">
-                  {horse.medicalHistory && horse.medicalHistory.length > 0 ? (
+                  {fullMedicalHistory.length > 0 ? (
                       <div className="space-y-4">
-                          {horse.medicalHistory.map((record, idx) => (
+                          {fullMedicalHistory.map((record, idx) => (
                               <div key={idx} className="bg-gray-800 p-5 rounded-xl border-r-4 border-blue-500 shadow-md">
                                   <div className="flex justify-between items-start mb-2">
                                       <h3 className="text-lg font-bold text-white">{record.diagnosis}</h3>
@@ -224,10 +233,10 @@ const HorseViewModal = ({ horse, vaccinations, onClose }: { horse: Horse; vaccin
                                       <p><span className="text-gray-500 font-bold">العلاج:</span> {record.treatment}</p>
                                       {record.notes && <p><span className="text-gray-500 font-bold">ملاحظات:</span> {record.notes}</p>}
                                       <div className="pt-2 flex items-center gap-2">
-                                          <span className="text-xs font-bold text-gray-500">الحالة عند الخروج:</span>
-                                          {record.status === 'healthy' || record.status === 'recovered' ? 
-                                              <span className="text-green-400 text-xs bg-green-900/30 px-2 py-0.5 rounded">شفاء تام ({record.recoveryDate || '-'})</span> : 
-                                              <span className="text-amber-400 text-xs bg-amber-900/30 px-2 py-0.5 rounded">تحت المتابعة</span>
+                                          <span className="text-xs font-bold text-gray-500">الحالة:</span>
+                                          {record.status === 'monitoring' ? 
+                                              <span className="text-amber-400 text-xs bg-amber-900/30 px-2 py-0.5 rounded animate-pulse">تحت المتابعة</span> : 
+                                              <span className="text-green-400 text-xs bg-green-900/30 px-2 py-0.5 rounded">شفاء ({record.recoveryDate || record.date})</span>
                                           }
                                       </div>
                                   </div>
@@ -237,7 +246,8 @@ const HorseViewModal = ({ horse, vaccinations, onClose }: { horse: Horse; vaccin
                   ) : (
                       <div className="text-center py-20 text-gray-500">
                           <ClinicIcon className="w-16 h-16 mx-auto mb-4 opacity-20" />
-                          <p>لا توجد سجلات مرضية سابقة.</p>
+                          <p>لا توجد سجلات طبية "دائمة" لهذا الحصان.</p>
+                          <p className="text-xs mt-2">يمكنك إضافة حالات من دفتر العيادة بتفعيل خيار "الإضافة للسجل الدائم".</p>
                       </div>
                   )}
               </div>
@@ -361,7 +371,9 @@ const HorseFormModal = ({ horse, onClose, onSave }: { horse?: Horse; onClose: ()
   const [pregnancyData, setPregnancyData] = useState({ conceptionDate: horse?.pregnancy?.conceptionDate || '', expectedDueDate: horse?.pregnancy?.expectedDueDate || '', notes: horse?.pregnancy?.notes || '' });
   const [isNursing, setIsNursing] = useState(!!horse?.lactation);
   const [nursingData, setNursingData] = useState({ foalName: horse?.lactation?.foalName || '', foalId: horse?.lactation?.foalId || '', startDate: horse?.lactation?.startDate || '', expectedWeaningDate: horse?.lactation?.expectedWeaningDate || '', notes: horse?.lactation?.notes || '' });
+  
   const isFemale = formData.gender.includes('انثى');
+
   const calculateDate = useCallback((baseDate: string, daysToAdd: number = 0, monthsToAdd: number = 0) => {
       if (!baseDate) return '';
       const date = new Date(baseDate);
@@ -370,6 +382,7 @@ const HorseFormModal = ({ horse, onClose, onSave }: { horse?: Horse; onClose: ()
       if (monthsToAdd) date.setMonth(date.getMonth() + monthsToAdd);
       try { return date.toISOString().split('T')[0]; } catch (e) { return ''; }
   }, []);
+
   useEffect(() => {
       if (pregnancyData.conceptionDate) {
           const newDueDate = calculateDate(pregnancyData.conceptionDate, 340, 0);
@@ -378,6 +391,7 @@ const HorseFormModal = ({ horse, onClose, onSave }: { horse?: Horse; onClose: ()
           }
       }
   }, [pregnancyData.conceptionDate, calculateDate]);
+
   useEffect(() => {
       if (nursingData.startDate) {
           const newWeaningDate = calculateDate(nursingData.startDate, 0, 6);
@@ -386,6 +400,7 @@ const HorseFormModal = ({ horse, onClose, onSave }: { horse?: Horse; onClose: ()
           }
       }
   }, [nursingData.startDate, calculateDate]);
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     const finalData: any = { ...formData };
@@ -394,6 +409,7 @@ const HorseFormModal = ({ horse, onClose, onSave }: { horse?: Horse; onClose: ()
     onSave(horse ? { ...horse, ...finalData } : finalData);
     onClose();
   };
+
   return (
     <div className="fixed inset-0 bg-black/90 backdrop-blur-sm flex justify-center items-center z-[60] p-4 text-right">
       <div className="bg-gray-900 rounded-[2rem] shadow-2xl w-full max-w-2xl border border-gray-800 max-h-[90vh] flex flex-col overflow-hidden">
@@ -541,7 +557,6 @@ const HorsesPage: React.FC<HorsesPageProps> = ({ horses, vaccinations, clinicLog
                 map[horse.id] = 'monitoring';
             } else if (latest.status === 'recovered') {
                 const rDate = latest.recoveryDate || latest.date;
-                // الشفاء يطبق من اليوم التالي (Today must be strictly greater than recovery date)
                 if (today > rDate) {
                     map[horse.id] = 'healthy';
                 } else {
@@ -572,7 +587,7 @@ const HorsesPage: React.FC<HorsesPageProps> = ({ horses, vaccinations, clinicLog
     <div className="space-y-6 pb-20 text-right">
       {isAddModalOpen && <HorseFormModal onClose={() => setIsAddModalOpen(false)} onSave={onAddHorse} />}
       {editingHorse && <HorseFormModal horse={editingHorse} onClose={() => setEditingHorse(null)} onSave={onEditHorse} />}
-      {viewingHorse && <HorseViewModal horse={viewingHorse} vaccinations={vaccinations} onClose={() => setViewingHorse(null)} />}
+      {viewingHorse && <HorseViewModal horse={viewingHorse} clinicLog={clinicLog} vaccinations={vaccinations} onClose={() => setViewingHorse(null)} />}
       {deletingHorse && <ConfirmDeleteHorseModal horse={deletingHorse} onClose={() => setDeletingHorse(null)} onConfirm={confirmDelete} />}
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
         <div>

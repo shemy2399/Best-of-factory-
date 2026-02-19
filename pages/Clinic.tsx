@@ -1,7 +1,7 @@
 
 import React, { useState, useMemo, useEffect } from 'react';
 import { Horse, Medication, MedicalRecordEntry, TreatmentProtocol } from '../types';
-import { PlusIcon, XMarkIcon, HorseIcon, PencilIcon, TrashIcon, CheckIcon, PrintIcon } from '../components/icons';
+import { PlusIcon, XMarkIcon, HorseIcon, PencilIcon, TrashIcon, CheckIcon, PrintIcon, ShieldIcon } from '../components/icons';
 import DateInput from '../components/DateInput';
 
 type ClinicLogEntry = { horseName: string; horseNumber?: string; horseId: string } & MedicalRecordEntry;
@@ -152,16 +152,17 @@ const EditEntryModal: React.FC<{
   onClose: () => void;
   onEditEntry: (entry: ClinicLogEntry, addToHistory: boolean) => void;
 }> = ({ entry, horses, onClose, onEditEntry }) => {
-    // Lookup horse number if missing in entry
     const horseDetails = useMemo(() => horses.find(h => h.id === entry.horseId), [horses, entry.horseId]);
     const displayNum = entry.horseNumber || horseDetails?.number || '---';
 
     const [formData, setFormData] = useState({ ...entry, horseNumber: displayNum, recoveryDate: entry.recoveryDate || '', followUpDate: entry.followUpDate || '', followUpNotes: entry.followUpNotes || '' });
-    const [addToMedicalHistory, setAddToMedicalHistory] = useState(() => {
-        return horseDetails?.medicalHistory?.some(m => m.id === entry.id) || false;
-    });
+    
+    // تصحيح: دلوقت بيقرأ حالة isPermanent الحقيقية من السجل الممرر (entry)
+    const [addToMedicalHistory, setAddToMedicalHistory] = useState(entry.isPermanent === true);
+
     const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => { const { name, value } = e.target; setFormData(prev => ({...prev, [name]: value})); };
     useEffect(() => { if(formData.status !== 'recovered') setFormData(prev => ({...prev, recoveryDate: ''})); }, [formData.status]);
+    
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
         const dataToSubmit: ClinicLogEntry = { ...formData } as any;
@@ -171,6 +172,7 @@ const EditEntryModal: React.FC<{
         onEditEntry(dataToSubmit, addToMedicalHistory);
         onClose();
     };
+    
     return (
         <div className="fixed inset-0 bg-black/80 flex justify-center items-center z-50 p-4 backdrop-blur-sm">
             <div className="bg-gray-800 rounded-3xl shadow-2xl p-8 w-full max-w-2xl max-h-[90vh] overflow-y-auto border border-gray-700 custom-scrollbar">
@@ -226,8 +228,8 @@ const ConfirmDeleteModal: React.FC<{
   onConfirm: (entryId: string, horseId: string) => void;
 }> = ({ entry, onClose, onConfirm }) => {
     return (
-        <div className="fixed inset-0 bg-black/85 flex justify-center items-center z-50 p-4 backdrop-blur-md">
-            <div className="bg-gray-800 rounded-3xl shadow-2xl p-10 w-full max-w-md text-center border border-gray-700">
+        <div className="fixed inset-0 bg-black/85 flex justify-center items-center z-50 p-4 backdrop-blur-sm">
+            <div className="bg-gray-800 rounded-3xl shadow-2xl p-10 w-full max-md text-center border border-gray-700">
                 <div className="mx-auto flex items-center justify-center h-20 w-20 rounded-full bg-red-500/10 mb-6"><TrashIcon className="h-10 w-10 text-red-500" /></div>
                 <h3 className="text-2xl font-black text-gray-100 mb-2">تأكيد حذف السجل</h3>
                 <p className="text-gray-400 text-sm leading-relaxed">سيتم حذف سجل حالة <span className="font-bold text-white">"{entry.horseName}"</span> نهائياً.</p>
@@ -250,7 +252,6 @@ const ClinicPage: React.FC<ClinicPageProps> = ({ horses, clinicLog, protocols, o
   const [selectedYear, setSelectedYear] = useState<string>(String(new Date().getFullYear()));
   const BATTALIONS: Exclude<Horse['battalion'], 'الكل'>[] = ['الكتيبة الاولى', 'الكتيبة الثانية', 'الكتيبة الثالثة', 'نادي الفروسية'];
   
-  // Create a mapping of Horse ID to Number for fallback lookup
   const horseNumberMap = useMemo(() => {
     const map: Record<string, string> = {};
     horses.forEach(h => { map[h.id] = h.number; });
@@ -258,6 +259,7 @@ const ClinicPage: React.FC<ClinicPageProps> = ({ horses, clinicLog, protocols, o
   }, [horses]);
 
   const horsesForSelectedBattalion = useMemo(() => { if (globalBattalionFilter === 'الكل') return []; return horses.filter(h => h.battalion === globalBattalionFilter); }, [horses, globalBattalionFilter]);
+  
   const filteredClinicLog = useMemo(() => {
     if (globalBattalionFilter === 'الكل') return [];
     const horseIdsInBattalion = new Set(horsesForSelectedBattalion.map(h => h.id));
@@ -343,14 +345,16 @@ const ClinicPage: React.FC<ClinicPageProps> = ({ horses, clinicLog, protocols, o
             </thead>
             <tbody className="divide-y divide-gray-700/30">
                 {filteredClinicLog.length > 0 ? filteredClinicLog.map((entry) => {
-                    // Fallback lookup for the number
                     const horseNum = entry.horseNumber || horseNumberMap[entry.horseId] || '---';
                     return (
                         <tr key={entry.id} className="transition-colors group hover:bg-gray-700/20">
                             <td className="px-6 py-5 whitespace-nowrap text-xs font-mono text-gray-400">{entry.date}{entry.status === 'recovered' && (<span className="block text-[9px] text-blue-400 font-bold mt-1">شفاء: {entry.recoveryDate || entry.date}</span>)}</td>
                             <td className="px-6 py-5 whitespace-nowrap">
                                 <div className="flex flex-col leading-tight">
-                                    <span className="text-sm font-black text-white">{entry.horseName}</span>
+                                    <div className="flex items-center gap-1.5">
+                                        <span className="text-sm font-black text-white">{entry.horseName}</span>
+                                        {entry.isPermanent && <ShieldIcon className="w-3 h-3 text-amber-500" title="مسجل بالسجل الدائم" />}
+                                    </div>
                                     <span className="text-[10px] font-mono text-amber-500/80">#{horseNum}</span>
                                 </div>
                             </td>

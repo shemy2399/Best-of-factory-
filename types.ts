@@ -37,6 +37,7 @@ export interface MedicalRecordEntry {
   recoveryDate?: string;
   followUpDate?: string;
   followUpNotes?: string;
+  isPermanent?: boolean; // خاصية التحكم في الظهور بالسجل الدائم
 }
 
 export interface Vaccination {
