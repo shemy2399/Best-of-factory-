@@ -17,7 +17,20 @@ const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess, admins }) => {
     e.preventDefault();
     
     // التحقق من وجود المستخدم في القائمة
-    const validUser = admins.find(admin => admin.username === username && admin.password === password);
+    let validUser = admins.find(admin => admin.username === username && admin.password === password);
+    
+    // Fallback for first-time setup if database is empty
+    if (!validUser && admins.length === 0 && username === 'admin' && password === '123456') {
+        validUser = {
+            id: 'default-admin',
+            username: 'admin',
+            password: '123456',
+            role: 'superadmin',
+            assignedBattalion: 'الكل',
+            protectedPages: [],
+            createdAt: new Date().toISOString()
+        };
+    }
     
     if (validUser) {
       setError('');

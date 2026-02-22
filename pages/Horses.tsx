@@ -458,11 +458,8 @@ const HorseFormModal = ({ horse, onClose, onSave }: { horse?: Horse; onClose: ()
                 </select>
               </div>
               <div className="space-y-1.5">
-                <label className="text-xs font-black text-gray-500">الحالة الافتراضية</label>
-                <select value={formData.status} onChange={e => setFormData({...formData, status: e.target.value as any})} className="w-full p-3.5 bg-gray-800 border border-gray-700 rounded-xl text-white font-bold outline-none">
-                    <option value="healthy">سليم</option>
-                    <option value="monitoring">متابعة</option>
-                </select>
+                <label className="text-xs font-black text-gray-500">الرسن</label>
+                <input value={formData.rasan} onChange={e => setFormData({...formData, rasan: e.target.value})} className="w-full p-3.5 bg-gray-800 border border-gray-700 rounded-xl text-white font-bold outline-none" />
               </div>
             </div>
           )}

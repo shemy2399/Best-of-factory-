@@ -118,9 +118,18 @@ const App: React.FC = () => {
   const [monthlyArchives, setMonthlyArchives] = useState<MonthlyArchive[]>([]);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
 
+  const [isInitialLoading, setIsInitialLoading] = useState(true);
+
   useEffect(() => {
     const unsubAdmins = onSnapshot(query(collection(db, "admins"), orderBy("createdAt", "asc")), (s) => {
-        setAdmins(s.docs.map(d => ({id: d.id, ...d.data()}) as AdminUser));
+        const adminsData = s.docs.map(d => ({id: d.id, ...d.data()}) as AdminUser);
+        setAdmins(adminsData);
+        setIsInitialLoading(false);
+        
+        // If no admins exist, we might want to create a default one or just let the user know
+        if (s.empty && !isAuthenticated) {
+            console.log("No admins found in database.");
+        }
     });
     const unsubHorses = onSnapshot(query(collection(db, "horses"), orderBy("createdAt", "desc")), (s) => setHorses(s.docs.map(d => ({id: d.id, ...d.data()}) as any)));
     const unsubClinic = onSnapshot(query(collection(db, "clinicLog"), orderBy("date", "desc")), (s) => setClinicLog(s.docs.map(d => ({id: d.id, ...d.data()}) as any)));
@@ -137,7 +146,7 @@ const App: React.FC = () => {
         unsubAdmins(); unsubHorses(); unsubClinic(); unsubNotifications(); unsubArchives(); unsubMeds(); unsubVacc(); unsubFeeding(); unsubProtocols();
         document.removeEventListener('fullscreenchange', handleFullScreenChange);
     };
-  }, []);
+  }, [isAuthenticated]);
 
   /**
    * دالة المزامنة الذكية المحدثة: 
@@ -238,7 +247,7 @@ const App: React.FC = () => {
 
   const activePageLabel = useMemo(() => NAV_ITEMS.find(item => item.id === activePage)?.label || 'لوحة التحكم', [activePage]);
 
-  if (admins.length === 0 && !isAuthenticated) return <div className="h-screen bg-gray-900 flex items-center justify-center text-white font-black animate-pulse">BOOTING...</div>;
+  if (isInitialLoading && !isAuthenticated) return <div className="h-screen bg-gray-900 flex items-center justify-center text-white font-black animate-pulse">جاري التحميل...</div>;
   if (!isAuthenticated) return <LoginPage onLoginSuccess={handleLoginSuccess} admins={admins} />;
 
   return (
