@@ -23,20 +23,22 @@ const AddEntryModal: React.FC<{
   protocols: TreatmentProtocol[];
   onClose: () => void;
   onAddEntry: (entry: Omit<MedicalRecordEntry, 'id'>, horseId: string, horseName: string, horseNumber: string, addToHistory: boolean) => void;
-}> = ({ horses, protocols, onClose, onAddEntry }) => {
-    const [selectedHorseId, setSelectedHorseId] = useState<string>('');
-    const [horseSearch, setHorseSearch] = useState('');
+  initialData?: Partial<ClinicLogEntry>;
+}> = ({ horses, protocols, onClose, onAddEntry, initialData }) => {
+    const [selectedHorseId, setSelectedHorseId] = useState<string>(initialData?.horseId || '');
+    const [horseSearch, setHorseSearch] = useState(initialData ? `${initialData.horseName} (${initialData.horseNumber || ''})` : '');
     const [showHorseList, setShowHorseList] = useState(false);
     
-    const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
-    const [diagnosis, setDiagnosis] = useState('');
-    const [treatment, setTreatment] = useState('');
-    const [notes, setNotes] = useState('');
-    const [status, setStatus] = useState<MedicalRecordEntry['status']>('monitoring');
-    const [recoveryDate, setRecoveryDate] = useState('');
-    const [addToMedicalHistory, setAddToMedicalHistory] = useState(true);
-    const [followUpDate, setFollowUpDate] = useState('');
-    const [followUpNotes, setFollowUpNotes] = useState('');
+    const [date, setDate] = useState(initialData?.date || new Date().toISOString().split('T')[0]);
+    const [diagnosis, setDiagnosis] = useState(initialData?.diagnosis || '');
+    const [treatment, setTreatment] = useState(initialData?.treatment || '');
+    const [notes, setNotes] = useState(initialData?.notes || '');
+    const [status, setStatus] = useState<MedicalRecordEntry['status']>(initialData?.status || 'monitoring');
+    const [recoveryDate, setRecoveryDate] = useState(initialData?.recoveryDate || '');
+    const [addToMedicalHistory, setAddToMedicalHistory] = useState(initialData ? (initialData.isPermanent === true) : true);
+    const [isUpdate, setIsUpdate] = useState(!!initialData);
+    const [followUpDate, setFollowUpDate] = useState(initialData?.followUpDate || '');
+    const [followUpNotes, setFollowUpNotes] = useState(initialData?.followUpNotes || '');
     
     const [suggestedProtocols, setSuggestedProtocols] = useState<TreatmentProtocol[]>([]);
     const selectedHorse = useMemo(() => horses.find(h => h.id === selectedHorseId), [selectedHorseId, horses]);
@@ -71,6 +73,7 @@ const AddEntryModal: React.FC<{
         if (!selectedHorse) { alert('يرجى اختيار حصان من القائمة.'); return; }
         const entryData: Omit<MedicalRecordEntry, 'id'> = {
             date, diagnosis, treatment, notes, status,
+            isPermanent: addToMedicalHistory,
             ...(status === 'recovered' && recoveryDate && { recoveryDate }),
             ...(followUpDate && { followUpDate }),
             ...(followUpNotes && { followUpNotes })
@@ -83,14 +86,27 @@ const AddEntryModal: React.FC<{
         <div className="fixed inset-0 bg-black/80 flex justify-center items-center z-50 p-4 backdrop-blur-sm">
             <div className="bg-gray-800 rounded-3xl shadow-2xl p-8 w-full max-w-2xl max-h-[90vh] overflow-y-auto border border-gray-700 custom-scrollbar">
                 <div className="flex justify-between items-center mb-6">
-                    <h2 className="text-2xl font-black text-white flex items-center gap-3"><HorseIcon className="w-8 h-8 text-amber-500" />تسجيل حالة جديدة</h2>
+                    <h2 className="text-2xl font-black text-white flex items-center gap-3">
+                        <HorseIcon className="w-8 h-8 text-amber-500" />
+                        {isUpdate ? 'تحديث الحالة اليومي' : 'تسجيل حالة جديدة'}
+                    </h2>
                     <button onClick={onClose} className="text-gray-400 hover:text-white transition-colors"><XMarkIcon className="w-6 h-6" /></button>
                 </div>
                 <form onSubmit={handleSubmit} className="space-y-6">
                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div className="relative">
                            <label className="block mb-2 font-bold text-gray-400 text-sm">اختر الحصان</label>
-                           <input type="text" value={horseSearch} onChange={(e) => { setHorseSearch(e.target.value); setSelectedHorseId(''); setShowHorseList(true); }} onFocus={() => setShowHorseList(true)} onBlur={() => setTimeout(() => setShowHorseList(false), 200)} placeholder="ابحث بالاسم أو الرقم..." className="w-full p-4 bg-gray-900 border border-gray-700 rounded-xl text-white font-bold focus:border-amber-500 outline-none transition-all shadow-inner" required={!selectedHorseId} />
+                           <input 
+                                type="text" 
+                                value={horseSearch} 
+                                onChange={(e) => { setHorseSearch(e.target.value); setSelectedHorseId(''); setShowHorseList(true); }} 
+                                onFocus={() => setShowHorseList(true)} 
+                                onBlur={() => setTimeout(() => setShowHorseList(false), 200)} 
+                                placeholder="ابحث بالاسم أو الرقم..." 
+                                className={`w-full p-4 bg-gray-900 border border-gray-700 rounded-xl text-white font-bold focus:border-amber-500 outline-none transition-all shadow-inner ${isUpdate ? 'opacity-50' : ''}`} 
+                                required={!selectedHorseId} 
+                                readOnly={isUpdate}
+                           />
                            {showHorseList && (
                                 <ul className="absolute z-20 w-full bg-gray-900 border border-gray-700 rounded-xl mt-1 max-h-60 overflow-y-auto shadow-2xl">
                                     {filteredHorses.length > 0 ? filteredHorses.map(h => (
@@ -137,9 +153,16 @@ const AddEntryModal: React.FC<{
                             <input type="checkbox" checked={addToMedicalHistory} onChange={e => setAddToMedicalHistory(e.target.checked)} className="sr-only peer" />
                             <div className="w-11 h-6 bg-gray-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-amber-500"></div>
                         </label>
-                        <span className="text-sm font-bold text-gray-200">إضافة إلى السجل الطبي الدائم للحصان</span>
+                        <div className="flex flex-col">
+                            <span className="text-sm font-bold text-gray-200">إضافة إلى السجل الطبي الدائم للحصان</span>
+                            {isUpdate && <span className="text-[10px] text-amber-500/70 font-bold">يفضل تركها غير مفعلة للتحديثات اليومية</span>}
+                        </div>
                     </div>
-                    <div className="pt-4"><button type="submit" className="w-full py-4 bg-amber-500 hover:bg-amber-600 text-white font-black rounded-2xl shadow-lg shadow-amber-500/20 transition-all text-lg">تسجيل الحالة في الدفتر</button></div>
+                    <div className="pt-4">
+                        <button type="submit" className={`w-full py-4 ${isUpdate ? 'bg-blue-600 hover:bg-blue-700' : 'bg-amber-500 hover:bg-amber-600'} text-white font-black rounded-2xl shadow-lg transition-all text-lg`}>
+                            {isUpdate ? 'حفظ التحديث اليومي' : 'تسجيل الحالة في الدفتر'}
+                        </button>
+                    </div>
                 </form>
             </div>
         </div>
@@ -245,6 +268,7 @@ const ConfirmDeleteModal: React.FC<{
 const ClinicPage: React.FC<ClinicPageProps> = ({ horses, clinicLog, protocols, onAddEntry, onEditEntry, onDeleteEntry, globalBattalionFilter, setGlobalBattalionFilter }) => {
   const [viewType, setViewType] = useState<'daily' | 'monthly' | 'yearly'>('daily');
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [updateEntryData, setUpdateEntryData] = useState<ClinicLogEntry | null>(null);
   const [editingEntry, setEditingEntry] = useState<ClinicLogEntry | null>(null);
   const [deletingEntry, setDeletingEntry] = useState<ClinicLogEntry | null>(null);
   const [selectedDate, setSelectedDate] = useState<string>(new Date().toISOString().split('T')[0]);
@@ -265,11 +289,27 @@ const ClinicPage: React.FC<ClinicPageProps> = ({ horses, clinicLog, protocols, o
     const horseIdsInBattalion = new Set(horsesForSelectedBattalion.map(h => h.id));
     let logForBattalion = clinicLog.filter(entry => horseIdsInBattalion.has(entry.horseId));
     if (viewType === 'daily') {
-        logForBattalion = logForBattalion.filter(entry => {
-            if (entry.status === 'monitoring') return entry.date <= selectedDate;
-            if (entry.status === 'recovered') return (entry.recoveryDate === selectedDate) || (!entry.recoveryDate && entry.date === selectedDate);
-            return entry.date === selectedDate;
+        // 1. السجلات المسجلة فعلياً في هذا اليوم
+        const recordsOnDate = logForBattalion.filter(entry => entry.date === selectedDate);
+        const horseIdsOnDate = new Set(recordsOnDate.map(e => e.horseId));
+
+        // 2. الحالات المستمرة (monitoring) من أيام سابقة ولم يتم تحديثها اليوم
+        const ongoingCases = logForBattalion.filter(entry => 
+            entry.date < selectedDate && 
+            entry.status === 'monitoring' && 
+            !horseIdsOnDate.has(entry.horseId)
+        );
+
+        // 3. نأخذ فقط أحدث سجل لكل حصان من الحالات المستمرة
+        const latestOngoing: Record<string, ClinicLogEntry> = {};
+        ongoingCases.forEach(entry => {
+            if (!latestOngoing[entry.horseId] || entry.date > latestOngoing[entry.horseId].date) {
+                latestOngoing[entry.horseId] = entry;
+            }
         });
+
+        logForBattalion = [...recordsOnDate, ...Object.values(latestOngoing)];
+
         logForBattalion.sort((a, b) => {
             const statusOrder: any = { monitoring: 0, recovered: 1, healthy: 2 };
             if (statusOrder[a.status] !== statusOrder[b.status]) return statusOrder[a.status] - statusOrder[b.status];
@@ -319,6 +359,25 @@ const ClinicPage: React.FC<ClinicPageProps> = ({ horses, clinicLog, protocols, o
   return (
     <div className="space-y-8 animate-fade-in pb-20">
       {isModalOpen && <AddEntryModal horses={horsesForSelectedBattalion} protocols={protocols} onClose={() => setIsModalOpen(false)} onAddEntry={onAddEntry} />}
+      
+      {updateEntryData && (
+          <AddEntryModal 
+            key={updateEntryData.id + selectedDate}
+            horses={horses} 
+            protocols={protocols} 
+            onClose={() => setUpdateEntryData(null)} 
+            onAddEntry={(entry, hId, hName, hNum) => {
+                onAddEntry(entry, hId, hName, hNum, false);
+            }}
+            // نمرر البيانات الحالية كقيم افتراضية للتحديث
+            initialData={{
+                ...updateEntryData,
+                date: selectedDate, // التحديث يكون بتاريخ اليوم المختار في الكشف
+                isPermanent: false // التحديثات اليومية ليست دائمة افتراضياً
+            }}
+          />
+      )}
+
       {editingEntry && <EditEntryModal entry={editingEntry} horses={horses} onClose={() => setEditingEntry(null)} onEditEntry={onEditEntry} />}
       {deletingEntry && <ConfirmDeleteModal entry={deletingEntry} onClose={() => setDeletingEntry(null)} onConfirm={onDeleteEntry} />}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-6">
@@ -361,7 +420,21 @@ const ClinicPage: React.FC<ClinicPageProps> = ({ horses, clinicLog, protocols, o
                             <td className="px-6 py-5 whitespace-nowrap text-sm text-gray-300 font-bold">{entry.diagnosis}</td>
                             <td className="px-6 py-5 whitespace-nowrap text-center">{getRecordStatusBadge(entry)}</td>
                             <td className="px-6 py-5 text-xs text-gray-400 italic max-w-xs"><div className="truncate group-hover:whitespace-normal transition-all duration-500">{entry.treatment || '-'}{entry.notes && <p className="mt-1 text-gray-500 border-t border-gray-700/50 pt-1">ملاحظة: {entry.notes}</p>}</div></td>
-                            <td className="px-6 py-5 whitespace-nowrap text-left no-print"><div className="flex justify-end gap-2 opacity-50 group-hover:opacity-100 transition-opacity"><button onClick={() => setEditingEntry(entry)} className="p-2 text-gray-400 hover:text-amber-400 hover:bg-amber-500/10 rounded-lg transition-all"><PencilIcon className="w-5 h-5"/></button><button onClick={() => setDeletingEntry(entry)} className="p-2 text-gray-400 hover:text-red-400 hover:bg-red-500/10 rounded-lg transition-all"><TrashIcon className="w-5 h-5"/></button></div></td>
+                            <td className="px-6 py-5 whitespace-nowrap text-left no-print">
+                                <div className="flex justify-end gap-2 opacity-50 group-hover:opacity-100 transition-opacity">
+                                    {entry.status === 'monitoring' && (
+                                        <button 
+                                            onClick={() => setUpdateEntryData(entry)} 
+                                            className="px-3 py-1.5 bg-blue-600/20 text-blue-400 border border-blue-500/30 rounded-lg hover:bg-blue-600 hover:text-white transition-all text-[10px] font-black"
+                                            title={entry.date === selectedDate ? "إضافة تحديث آخر لليوم" : "إضافة تحديث يومي للعلاج"}
+                                        >
+                                            {entry.date === selectedDate ? "تحديث إضافي" : "تحديث اليوم"}
+                                        </button>
+                                    )}
+                                    <button onClick={() => setEditingEntry(entry)} className="p-2 text-gray-400 hover:text-amber-400 hover:bg-amber-500/10 rounded-lg transition-all"><PencilIcon className="w-5 h-5"/></button>
+                                    <button onClick={() => setDeletingEntry(entry)} className="p-2 text-gray-400 hover:text-red-400 hover:bg-red-500/10 rounded-lg transition-all"><TrashIcon className="w-5 h-5"/></button>
+                                </div>
+                            </td>
                         </tr>
                     );
                 }) : (<tr><td colSpan={6} className="text-center py-20 text-gray-500 font-bold">{viewType === 'daily' ? 'عنبر العيادة خالٍ تماماً..' : 'لا توجد سجلات مؤرشفة للفترة المختارة.'}</td></tr>)}

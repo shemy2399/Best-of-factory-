@@ -287,18 +287,32 @@ const App: React.FC = () => {
                 return <ClinicPage 
                     horses={horses} medications={medications} clinicLog={clinicLog} protocols={protocols} 
                     onAddEntry={async (entry, hId, hName, hNum, addHist) => { 
-                        await addDoc(collection(db, "clinicLog"), { ...entry, horseName: hName, horseNumber: hNum, horseId: hId, createdAt: serverTimestamp(), isPermanent: addHist }); 
-                        handleCreateNotification(`حالة عيادة: ${hName}`, 'clinic'); 
-                        await syncHorseMasterStatus(hId, entry.status);
+                        try {
+                            await addDoc(collection(db, "clinicLog"), { ...entry, horseName: hName, horseNumber: hNum, horseId: hId, createdAt: serverTimestamp(), isPermanent: addHist }); 
+                            handleCreateNotification(`حالة عيادة: ${hName}`, 'clinic'); 
+                            await syncHorseMasterStatus(hId, entry.status);
+                        } catch (err) {
+                            console.error("Error adding clinic entry:", err);
+                            alert("حدث خطأ أثناء حفظ السجل.");
+                        }
                     }} 
                     onEditEntry={async (upd, addHist) => { 
-                        const {id, horseId, horseName, horseNumber, ...data} = upd; 
-                        await updateDoc(doc(db, "clinicLog", id), { ...data, isPermanent: addHist, updatedAt: serverTimestamp() }); 
-                        await syncHorseMasterStatus(horseId, upd.status);
+                        try {
+                            const {id, horseId, horseName, horseNumber, ...data} = upd; 
+                            await updateDoc(doc(db, "clinicLog", id), { ...data, isPermanent: addHist, updatedAt: serverTimestamp() }); 
+                            await syncHorseMasterStatus(horseId, upd.status);
+                        } catch (err) {
+                            console.error("Error editing clinic entry:", err);
+                            alert("حدث خطأ أثناء تحديث السجل.");
+                        }
                     }} 
                     onDeleteEntry={async (id, horseId) => {
-                        await deleteDoc(doc(db, "clinicLog", id));
-                        await syncHorseMasterStatus(horseId);
+                        try {
+                            await deleteDoc(doc(db, "clinicLog", id));
+                            await syncHorseMasterStatus(horseId);
+                        } catch (err) {
+                            console.error("Error deleting clinic entry:", err);
+                        }
                     }} 
                     globalBattalionFilter={globalBattalionFilter} setGlobalBattalionFilter={setGlobalBattalionFilter} 
                 />;
