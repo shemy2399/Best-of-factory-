@@ -15,6 +15,7 @@ export interface AdminUser {
   createdAt: string;
   assignedBattalion?: 'الكتيبة الاولى' | 'الكتيبة الثانية' | 'الكتيبة الثالثة' | 'نادي الفروسية' | 'الكل';
   protectedPages?: ProtectedPageAccess[]; // قائمة بالصفحات المحمية مع رموزها الخاصة
+  hideAddHorseButton?: boolean; // خيار إخفاء زر إضافة حصان جديد
 }
 
 export interface Medication {

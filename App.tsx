@@ -130,15 +130,18 @@ const App: React.FC = () => {
         if (s.empty && !isAuthenticated) {
             console.log("No admins found in database.");
         }
+    }, (error) => {
+        console.error("Firebase Admins Error:", error);
+        setIsInitialLoading(false);
     });
-    const unsubHorses = onSnapshot(query(collection(db, "horses"), orderBy("createdAt", "desc")), (s) => setHorses(s.docs.map(d => ({id: d.id, ...d.data()}) as any)));
-    const unsubClinic = onSnapshot(query(collection(db, "clinicLog"), orderBy("date", "desc")), (s) => setClinicLog(s.docs.map(d => ({id: d.id, ...d.data()}) as any)));
-    const unsubNotifications = onSnapshot(query(collection(db, "notifications"), orderBy("createdAt", "desc")), (s) => setNotifications(s.docs.map(d => ({id: d.id, ...d.data()}) as any)));
-    const unsubArchives = onSnapshot(query(collection(db, "monthlyArchives"), orderBy("createdAt", "desc")), (s) => setMonthlyArchives(s.docs.map(d => ({id: d.id, ...d.data()}) as any)));
-    const unsubMeds = onSnapshot(query(collection(db, "medications"), orderBy("createdAt", "desc")), (s) => setMedications(s.docs.map(d => ({id: d.id, ...d.data()}) as any)));
-    const unsubVacc = onSnapshot(query(collection(db, "vaccinations"), orderBy("date", "desc")), (s) => setVaccinations(s.docs.map(d => ({id: d.id, ...d.data()}) as any)));
-    const unsubFeeding = onSnapshot(query(collection(db, "feedingSchedules")), (s) => setFeedingSchedules(s.docs.map(d => ({id: d.id, ...d.data()}) as any)));
-    const unsubProtocols = onSnapshot(query(collection(db, "protocols")), (s) => setProtocols(s.docs.map(d => ({id: d.id, ...d.data()}) as any)));
+    const unsubHorses = onSnapshot(query(collection(db, "horses"), orderBy("createdAt", "desc")), (s) => setHorses(s.docs.map(d => ({id: d.id, ...d.data()}) as any)), (err) => console.error("Horses Error:", err));
+    const unsubClinic = onSnapshot(query(collection(db, "clinicLog"), orderBy("date", "desc")), (s) => setClinicLog(s.docs.map(d => ({id: d.id, ...d.data()}) as any)), (err) => console.error("Clinic Error:", err));
+    const unsubNotifications = onSnapshot(query(collection(db, "notifications"), orderBy("createdAt", "desc")), (s) => setNotifications(s.docs.map(d => ({id: d.id, ...d.data()}) as any)), (err) => console.error("Notifications Error:", err));
+    const unsubArchives = onSnapshot(query(collection(db, "monthlyArchives"), orderBy("createdAt", "desc")), (s) => setMonthlyArchives(s.docs.map(d => ({id: d.id, ...d.data()}) as any)), (err) => console.error("Archives Error:", err));
+    const unsubMeds = onSnapshot(query(collection(db, "medications"), orderBy("createdAt", "desc")), (s) => setMedications(s.docs.map(d => ({id: d.id, ...d.data()}) as any)), (err) => console.error("Meds Error:", err));
+    const unsubVacc = onSnapshot(query(collection(db, "vaccinations"), orderBy("date", "desc")), (s) => setVaccinations(s.docs.map(d => ({id: d.id, ...d.data()}) as any)), (err) => console.error("Vacc Error:", err));
+    const unsubFeeding = onSnapshot(query(collection(db, "feedingSchedules")), (s) => setFeedingSchedules(s.docs.map(d => ({id: d.id, ...d.data()}) as any)), (err) => console.error("Feeding Error:", err));
+    const unsubProtocols = onSnapshot(query(collection(db, "protocols")), (s) => setProtocols(s.docs.map(d => ({id: d.id, ...d.data()}) as any)), (err) => console.error("Protocols Error:", err));
 
     const handleFullScreenChange = () => setIsFullScreen(!!document.fullscreenElement);
     document.addEventListener('fullscreenchange', handleFullScreenChange);
@@ -147,6 +150,20 @@ const App: React.FC = () => {
         document.removeEventListener('fullscreenchange', handleFullScreenChange);
     };
   }, [isAuthenticated]);
+
+  useEffect(() => {
+    if (isAuthenticated && currentUser && admins.length > 0) {
+        const freshUser = admins.find(a => a.id === currentUser.id);
+        if (freshUser) {
+            const freshStr = JSON.stringify(freshUser);
+            const currentStr = JSON.stringify(currentUser);
+            if (freshStr !== currentStr) {
+                setCurrentUser(freshUser);
+                sessionStorage.setItem('currentUserData', freshStr);
+            }
+        }
+    }
+  }, [admins, isAuthenticated, currentUser]);
 
   /**
    * دالة المزامنة الذكية المحدثة: 
@@ -265,7 +282,7 @@ const App: React.FC = () => {
               case 'dashboard': 
                 return <Dashboard horses={horses} medications={medications} clinicLog={clinicLog} globalBattalionFilter={globalBattalionFilter} setActivePage={handleNavigate} />;
               case 'horses': 
-                return <HorsesPage horses={horses} vaccinations={vaccinations} clinicLog={clinicLog} onAddHorse={handleAddHorse} onEditHorse={handleEditHorse} onDeleteHorse={handleDeleteHorse} globalBattalionFilter={globalBattalionFilter} initialSearchTerm={horseSearchFilter} />;
+                return <HorsesPage horses={horses} vaccinations={vaccinations} clinicLog={clinicLog} onAddHorse={handleAddHorse} onEditHorse={handleEditHorse} onDeleteHorse={handleDeleteHorse} globalBattalionFilter={globalBattalionFilter} initialSearchTerm={horseSearchFilter} currentUser={currentUser} />;
               case 'clinic': 
                 return <ClinicPage 
                     horses={horses} medications={medications} clinicLog={clinicLog} protocols={protocols} 
@@ -302,7 +319,35 @@ const App: React.FC = () => {
               case 'nursing': 
                 return <NursingPage horses={horses} onRecordWeaning={async (id) => updateDoc(doc(db, "horses", id), { lactation: deleteField() })} globalBattalionFilter={globalBattalionFilter} />;
               case 'admins': 
-                return <AdminManagement admins={admins} onAddAdmin={async (a) => addDoc(collection(db, "admins"), {...a, createdAt: new Date().toISOString()})} onEditAdmin={async (a) => { const {id, ...data} = a; updateDoc(doc(db, "admins", id), data); }} onDeleteAdmin={async (id) => deleteDoc(doc(db, "admins", id))} />;
+                return <AdminManagement 
+                    admins={admins} 
+                    onAddAdmin={async (a) => {
+                        try {
+                            await addDoc(collection(db, "admins"), {...a, createdAt: new Date().toISOString()});
+                            handleCreateNotification(`إضافة مستخدم جديد: ${a.username}`, 'system');
+                        } catch (err) {
+                            console.error("Error adding admin:", err);
+                            alert("حدث خطأ أثناء إضافة المستخدم.");
+                        }
+                    }} 
+                    onEditAdmin={async (a) => { 
+                        try {
+                            const {id, ...data} = a; 
+                            await updateDoc(doc(db, "admins", id), data); 
+                            handleCreateNotification(`تحديث صلاحيات: ${a.username}`, 'system');
+                        } catch (err) {
+                            console.error("Error editing admin:", err);
+                            alert("حدث خطأ أثناء تحديث البيانات.");
+                        }
+                    }} 
+                    onDeleteAdmin={async (id) => {
+                        try {
+                            await deleteDoc(doc(db, "admins", id));
+                        } catch (err) {
+                            console.error("Error deleting admin:", err);
+                        }
+                    }} 
+                />;
               default: 
                 return <Dashboard horses={horses} medications={medications} clinicLog={clinicLog} globalBattalionFilter={globalBattalionFilter} setActivePage={handleNavigate} />;
             }

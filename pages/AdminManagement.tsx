@@ -1,7 +1,7 @@
 
 import React, { useState } from 'react';
 import { AdminUser, Page, ProtectedPageAccess } from '../types';
-import { PlusIcon, PencilIcon, TrashIcon, XMarkIcon, KeyIcon } from '../components/icons';
+import { PlusIcon, PencilIcon, TrashIcon, XMarkIcon, KeyIcon, CheckIcon } from '../components/icons';
 import { NAV_ITEMS } from '../constants';
 
 interface AdminManagementProps {
@@ -16,14 +16,17 @@ const BATTALIONS = ['الكل', 'الكتيبة الاولى', 'الكتيبة �
 const AdminModal: React.FC<{
   admin?: AdminUser;
   onClose: () => void;
-  onSave: (admin: Omit<AdminUser, 'id' | 'createdAt'> | AdminUser) => void;
+  onSave: (admin: Omit<AdminUser, 'id' | 'createdAt'> | AdminUser) => Promise<void> | any;
 }> = ({ admin, onClose, onSave }) => {
   const [formData, setFormData] = useState({
     username: admin?.username || '',
     password: admin?.password || '',
     assignedBattalion: admin?.assignedBattalion || 'الكل',
     protectedPages: admin?.protectedPages || [] as ProtectedPageAccess[],
+    hideAddHorseButton: admin?.hideAddHorseButton || false,
   });
+
+  const [isSaving, setIsSaving] = useState(false);
 
   const togglePageProtection = (pageId: Page) => {
     setFormData(prev => {
@@ -45,7 +48,11 @@ const AdminModal: React.FC<{
       }));
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const toggleHideAddHorse = () => {
+    setFormData(prev => ({ ...prev, hideAddHorseButton: !prev.hideAddHorseButton }));
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
     // Validate that all selected protected pages have a code
@@ -55,12 +62,28 @@ const AdminModal: React.FC<{
         return;
     }
 
-    if (admin) {
-      onSave({ ...admin, ...formData });
-    } else {
-      onSave(formData);
+    setIsSaving(true);
+    try {
+        const payload = {
+            username: formData.username,
+            password: formData.password,
+            assignedBattalion: formData.assignedBattalion,
+            protectedPages: formData.protectedPages,
+            hideAddHorseButton: formData.hideAddHorseButton
+        };
+
+        if (admin) {
+          await onSave({ ...admin, ...payload });
+        } else {
+          await onSave(payload);
+        }
+        onClose();
+    } catch (err) {
+        console.error("Save error:", err);
+        alert("حدث خطأ أثناء الحفظ.");
+    } finally {
+        setIsSaving(false);
     }
-    onClose();
   };
 
   return (
@@ -103,6 +126,26 @@ const AdminModal: React.FC<{
                  {BATTALIONS.map(b => <option key={b} value={b}>{b}</option>)}
              </select>
              <p className="text-xs text-gray-400 mt-1">إذا تم تحديد كتيبة محددة، لن يرى المستخدم أي بيانات تخص الكتائب الأخرى.</p>
+          </div>
+
+          <div className="bg-gray-900/50 p-5 rounded-2xl border border-gray-700 flex items-center justify-between group transition-all hover:border-gray-600">
+              <div className="flex flex-col gap-1">
+                  <span className={`font-bold transition-colors ${formData.hideAddHorseButton ? 'text-red-400' : 'text-gray-300 group-hover:text-white'}`}>
+                      صلاحية إضافة خيول جديدة
+                  </span>
+                  <p className="text-[10px] text-gray-500">
+                      {formData.hideAddHorseButton ? 'المستخدم لا يملك صلاحية إضافة خيول' : 'المستخدم يمكنه إضافة خيول جديدة للقوة'}
+                  </p>
+              </div>
+              <button 
+                type="button"
+                onClick={toggleHideAddHorse}
+                className={`relative inline-flex h-7 w-12 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${formData.hideAddHorseButton ? 'bg-red-600' : 'bg-gray-700'}`}
+              >
+                  <span 
+                    className={`pointer-events-none inline-block h-6 w-6 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${formData.hideAddHorseButton ? '-translate-x-5' : 'translate-x-0'}`} 
+                  />
+              </button>
           </div>
 
           <div className="bg-gray-900/50 p-4 rounded-xl border border-gray-700">
@@ -152,8 +195,13 @@ const AdminModal: React.FC<{
           </div>
 
           <div className="flex justify-end pt-4 border-t border-gray-700">
-            <button type="submit" className="px-8 py-3 bg-amber-500 text-white font-black rounded-xl hover:bg-amber-600 transition-colors shadow-lg shadow-amber-500/20">
-              {admin ? 'حفظ التعديلات' : 'إضافة المستخدم'}
+            <button 
+                type="submit" 
+                disabled={isSaving}
+                className={`px-8 py-3 bg-amber-500 text-white font-black rounded-xl hover:bg-amber-600 transition-all shadow-lg shadow-amber-500/20 flex items-center gap-2 ${isSaving ? 'opacity-50 cursor-not-allowed' : 'active:scale-95'}`}
+            >
+              {isSaving ? 'جاري الحفظ...' : (admin ? 'حفظ التعديلات' : 'إضافة المستخدم')}
+              {isSaving && <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>}
             </button>
           </div>
         </form>
@@ -220,11 +268,12 @@ const AdminManagement: React.FC<AdminManagementProps> = ({ admins, onAddAdmin, o
     <div className="space-y-6">
       {(isModalOpen || editingAdmin) && (
         <AdminModal 
+          key={editingAdmin?.id || 'new'}
           admin={editingAdmin || undefined} 
           onClose={() => { setIsModalOpen(false); setEditingAdmin(null); }} 
-          onSave={(data) => {
-            if ('id' in data) onEditAdmin(data as AdminUser);
-            else onAddAdmin(data);
+          onSave={async (data) => {
+            if ('id' in data) await onEditAdmin(data as AdminUser);
+            else await onAddAdmin(data);
           }} 
         />
       )}
@@ -265,6 +314,9 @@ const AdminManagement: React.FC<AdminManagementProps> = ({ admins, onAddAdmin, o
                   <td className="px-6 py-4 text-white font-medium">
                       {admin.username}
                       <span className="block text-[10px] text-gray-500 font-mono mt-1">••••••••</span>
+                      {admin.hideAddHorseButton && (
+                          <span className="inline-block mt-1 px-1.5 py-0.5 bg-red-500/10 text-red-400 border border-red-500/20 rounded text-[9px] font-bold">إضافة خيول معطلة</span>
+                      )}
                   </td>
                   <td className="px-6 py-4">
                       {admin.assignedBattalion && admin.assignedBattalion !== 'الكل' ? (

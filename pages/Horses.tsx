@@ -1,6 +1,6 @@
 
 import React, { useState, useMemo, useEffect, useCallback } from 'react';
-import { Horse, Vaccination, MedicalRecordEntry } from '../types';
+import { Horse, Vaccination, MedicalRecordEntry, AdminUser } from '../types';
 import { PlusIcon, PencilIcon, TrashIcon, XMarkIcon, HorseIcon, EyeIcon, BreedingIcon, CheckIcon, ClinicIcon, VaccinationIcon, MedicalRecordsIcon } from '../components/icons'; 
 import DateInput from '../components/DateInput';
 
@@ -15,6 +15,7 @@ interface HorsesPageProps {
   onDeleteHorse: (horseId: string) => void;
   globalBattalionFilter: Horse['battalion'] | 'الكل';
   initialSearchTerm?: string;
+  currentUser?: AdminUser | null;
 }
 
 const BATTALIONS: Horse['battalion'][] = ['الكتيبة الاولى', 'الكتيبة الثانية', 'الكتيبة الثالثة', 'نادي الفروسية'];
@@ -525,7 +526,7 @@ const HorseFormModal = ({ horse, onClose, onSave }: { horse?: Horse; onClose: ()
 };
 
 // --- Main Page ---
-const HorsesPage: React.FC<HorsesPageProps> = ({ horses, vaccinations, clinicLog, onAddHorse, onEditHorse, onDeleteHorse, globalBattalionFilter, initialSearchTerm }) => {
+const HorsesPage: React.FC<HorsesPageProps> = ({ horses, vaccinations, clinicLog, onAddHorse, onEditHorse, onDeleteHorse, globalBattalionFilter, initialSearchTerm, currentUser }) => {
   const [displaySearch, setDisplaySearch] = useState(initialSearchTerm || '');
   const [debouncedSearch, setDebouncedSearch] = useState(initialSearchTerm || '');
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
@@ -591,7 +592,9 @@ const HorsesPage: React.FC<HorsesPageProps> = ({ horses, vaccinations, clinicLog
           <h1 className="text-3xl font-black text-white flex items-center gap-3"><HorseIcon className="w-8 h-8 text-amber-500" />سجلات الخيول</h1>
           <p className="text-gray-400 mt-1 font-medium text-sm">قاعدة البيانات المركزية لخيول الوحدة.</p>
         </div>
-        <button onClick={() => setIsAddModalOpen(true)} className="bg-amber-500 text-white px-6 py-3 rounded-xl font-black shadow-lg shadow-amber-500/20 hover:bg-amber-600 transition-all flex items-center gap-2 active:scale-95"><PlusIcon className="w-5 h-5" />إضافة حصان جديد</button>
+        {!currentUser?.hideAddHorseButton && (
+          <button onClick={() => setIsAddModalOpen(true)} className="bg-amber-500 text-white px-6 py-3 rounded-xl font-black shadow-lg shadow-amber-500/20 hover:bg-amber-600 transition-all flex items-center gap-2 active:scale-95"><PlusIcon className="w-5 h-5" />إضافة حصان جديد</button>
+        )}
       </div>
       <div className="relative group"><input type="text" placeholder="بحث شامل..." value={displaySearch} onChange={(e) => setDisplaySearch(e.target.value)} className="w-full p-5 bg-gray-800 border border-gray-700 rounded-2xl text-white placeholder-gray-500 focus:border-amber-500 outline-none transition-all shadow-lg text-lg font-bold" /></div>
       <div className="bg-gray-800 rounded-[2rem] shadow-2xl overflow-hidden border border-gray-700">
