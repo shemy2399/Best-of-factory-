@@ -572,7 +572,18 @@ const HorsesPage: React.FC<HorsesPageProps> = ({ horses, vaccinations, clinicLog
     if (!horses) return [];
     const filter = debouncedSearch.toLowerCase().trim();
     let list = globalBattalionFilter === 'الكل' ? horses : horses.filter(h => h.battalion === globalBattalionFilter);
-    if (filter) list = list.filter(h => (h.name || '').toLowerCase().includes(filter) || (h.number || '').includes(filter) || (h.rasan || '').toLowerCase().includes(filter) || (h.breed || '').toLowerCase().includes(filter));
+    if (filter) {
+        if (filter === '(غير محدد)') {
+            list = list.filter(h => !h.rasan || h.rasan.trim() === '');
+        } else {
+            list = list.filter(h => 
+                (h.name || '').toLowerCase().includes(filter) || 
+                (h.number || '').includes(filter) || 
+                (h.rasan || '').toLowerCase().includes(filter) || 
+                (h.breed || '').toLowerCase().includes(filter)
+            );
+        }
+    }
     return list;
   }, [horses, globalBattalionFilter, debouncedSearch]);
 
