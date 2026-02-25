@@ -39,6 +39,7 @@ export interface MedicalRecordEntry {
   followUpDate?: string;
   followUpNotes?: string;
   isPermanent?: boolean; // خاصية التحكم في الظهور بالسجل الدائم
+  createdAt?: any; // Timestamp from Firestore
 }
 
 export interface Vaccination {

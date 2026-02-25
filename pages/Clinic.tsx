@@ -289,9 +289,19 @@ const ClinicPage: React.FC<ClinicPageProps> = ({ horses, clinicLog, protocols, o
     const horseIdsInBattalion = new Set(horsesForSelectedBattalion.map(h => h.id));
     let logForBattalion = clinicLog.filter(entry => horseIdsInBattalion.has(entry.horseId));
     if (viewType === 'daily') {
+        // ... (Existing Daily Logic) ...
         // 1. السجلات المسجلة فعلياً في هذا اليوم
         const recordsOnDate = logForBattalion.filter(entry => entry.date === selectedDate);
-        const horseIdsOnDate = new Set(recordsOnDate.map(e => e.horseId));
+        
+        // تجميع سجلات اليوم لكل حصان (عرض الأحدث فقط)
+        const latestOnDate: Record<string, ClinicLogEntry> = {};
+        recordsOnDate.forEach(entry => {
+            if (!latestOnDate[entry.horseId] || entry.createdAt > latestOnDate[entry.horseId].createdAt) {
+                latestOnDate[entry.horseId] = entry;
+            }
+        });
+
+        const horseIdsOnDate = new Set(Object.keys(latestOnDate));
 
         // 2. الحالات المستمرة (monitoring) من أيام سابقة ولم يتم تحديثها اليوم
         const ongoingCases = logForBattalion.filter(entry => 
@@ -308,18 +318,105 @@ const ClinicPage: React.FC<ClinicPageProps> = ({ horses, clinicLog, protocols, o
             }
         });
 
-        logForBattalion = [...recordsOnDate, ...Object.values(latestOngoing)];
+        // دمج القائمتين
+        logForBattalion = [...Object.values(latestOnDate), ...Object.values(latestOngoing)];
+
+        // حساب تاريخ الدخول الأصلي
+        logForBattalion = logForBattalion.map(entry => {
+             const horseHistory = clinicLog
+                .filter(e => e.horseId === entry.horseId && e.date <= entry.date)
+                .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+            
+            let admissionDate = entry.date;
+            for (let i = horseHistory.length - 1; i >= 0; i--) {
+                const current = horseHistory[i];
+                if (current.status === 'healthy') break;
+                if (current.status === 'monitoring' || current.status === 'recovered') {
+                    admissionDate = current.date;
+                }
+            }
+            return { ...entry, originalAdmissionDate: admissionDate };
+        });
 
         logForBattalion.sort((a, b) => {
             const statusOrder: any = { monitoring: 0, recovered: 1, healthy: 2 };
             if (statusOrder[a.status] !== statusOrder[b.status]) return statusOrder[a.status] - statusOrder[b.status];
             return new Date(b.date).getTime() - new Date(a.date).getTime();
         });
-    } else if (viewType === 'monthly') {
-        logForBattalion = logForBattalion.filter(entry => { const d = new Date(entry.date); return (d.getMonth() + 1) === parseInt(selectedMonth) && d.getFullYear() === parseInt(selectedYear); });
-        logForBattalion.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
-    } else if (viewType === 'yearly') {
-        logForBattalion = logForBattalion.filter(entry => { const d = new Date(entry.date); return d.getFullYear() === parseInt(selectedYear); });
+
+    } else {
+        // Logic for Monthly and Yearly Views (Grouping by Episode)
+        
+        // 1. Get all records for the battalion to trace history
+        const allBattalionRecords = clinicLog
+            .filter(e => horseIdsInBattalion.has(e.horseId))
+            .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime()); // Ascending
+
+        // 2. Group into Episodes
+        const episodes: { records: ClinicLogEntry[], horseId: string }[] = [];
+        const horseEpisodes: Record<string, typeof episodes[0]> = {};
+
+        allBattalionRecords.forEach(entry => {
+            let currentEp = horseEpisodes[entry.horseId];
+            
+            // Check if we should start a new episode
+            let isNew = true;
+            if (currentEp) {
+                const lastRecord = currentEp.records[currentEp.records.length - 1];
+                // If previous was monitoring, this is a continuation (even if this one is recovered)
+                if (lastRecord.status === 'monitoring') {
+                    isNew = false;
+                }
+            }
+
+            if (isNew) {
+                currentEp = { records: [entry], horseId: entry.horseId };
+                horseEpisodes[entry.horseId] = currentEp;
+                episodes.push(currentEp);
+            } else {
+                currentEp.records.push(entry);
+            }
+        });
+
+        // 3. Filter Episodes relevant to the selected period
+        const relevantEpisodes = episodes.filter(ep => {
+            // Check if ANY record in the episode falls in the selected period
+            return ep.records.some(r => {
+                const d = new Date(r.date);
+                if (viewType === 'monthly') {
+                    return (d.getMonth() + 1) === parseInt(selectedMonth) && d.getFullYear() === parseInt(selectedYear);
+                } else {
+                    return d.getFullYear() === parseInt(selectedYear);
+                }
+            });
+        });
+
+        // 4. Transform to Display Entries
+        logForBattalion = relevantEpisodes.map(ep => {
+            // Find the latest record that is WITHIN or BEFORE the selected period?
+            // Actually, usually we want to show the latest status *within the selected period*.
+            
+            // Filter records in this episode that are within the selected period
+            const recordsInPeriod = ep.records.filter(r => {
+                const d = new Date(r.date);
+                if (viewType === 'monthly') {
+                    return (d.getMonth() + 1) === parseInt(selectedMonth) && d.getFullYear() === parseInt(selectedYear);
+                } else {
+                    return d.getFullYear() === parseInt(selectedYear);
+                }
+            });
+
+            // If no records in period (shouldn't happen due to filter above), fallback to last
+            const displayRecord = recordsInPeriod.length > 0 
+                ? recordsInPeriod[recordsInPeriod.length - 1] 
+                : ep.records[ep.records.length - 1];
+
+            return {
+                ...displayRecord,
+                originalAdmissionDate: ep.records[0].date // First record of the episode
+            };
+        });
+
         logForBattalion.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
     }
     return logForBattalion;
@@ -407,7 +504,13 @@ const ClinicPage: React.FC<ClinicPageProps> = ({ horses, clinicLog, protocols, o
                     const horseNum = entry.horseNumber || horseNumberMap[entry.horseId] || '---';
                     return (
                         <tr key={entry.id} className="transition-colors group hover:bg-gray-700/20">
-                            <td className="px-6 py-5 whitespace-nowrap text-xs font-mono text-gray-400">{entry.date}{entry.status === 'recovered' && (<span className="block text-[9px] text-blue-400 font-bold mt-1">شفاء: {entry.recoveryDate || entry.date}</span>)}</td>
+                            <td className="px-6 py-5 whitespace-nowrap text-xs font-mono text-gray-400">
+                                {(entry as any).originalAdmissionDate || entry.date}
+                                {entry.status === 'recovered' && (<span className="block text-[9px] text-blue-400 font-bold mt-1">شفاء: {entry.recoveryDate || entry.date}</span>)}
+                                {entry.date !== ((entry as any).originalAdmissionDate || entry.date) && viewType === 'daily' && (
+                                    <span className="block text-[9px] text-amber-500/70 mt-1">تحديث: {entry.date}</span>
+                                )}
+                            </td>
                             <td className="px-6 py-5 whitespace-nowrap">
                                 <div className="flex flex-col leading-tight">
                                     <div className="flex items-center gap-1.5">
