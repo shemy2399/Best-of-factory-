@@ -201,6 +201,44 @@ const App: React.FC = () => {
     }
   }, []);
 
+  /**
+   * دالة مزامنة السجل الطبي الدائم:
+   * عند تسجيل شفاء حصان في دفتر العيادة (حتى لو تحديث يومي)، 
+   * نقوم بتحديث حالة "الدخول" الأصلية في السجل الدائم لتصبح "شفاء".
+   */
+  const syncPermanentMedicalHistory = useCallback(async (horseId: string, status: MedicalRecordEntry['status'], recoveryDate?: string) => {
+    if (status === 'monitoring') return;
+
+    try {
+        // البحث عن السجلات الدائمة لهذا الحصان (استعلام بسيط لتجنب مشاكل الفهارس المركبة)
+        const q = query(
+            collection(db, "clinicLog"),
+            where("horseId", "==", horseId)
+        );
+        const snapshot = await getDocs(q);
+        
+        if (!snapshot.empty) {
+            // تصفية السجلات الدائمة وترتيبها يدوياً
+            const permanentEntries = snapshot.docs
+                .map(d => ({ id: d.id, ...d.data() } as any))
+                .filter(d => d.isPermanent === true)
+                .sort((a, b) => b.date.localeCompare(a.date));
+
+            // البحث عن آخر حالة "متابعة" لتحديثها إلى "شفاء"
+            const latestMonitoring = permanentEntries.find(d => d.status === 'monitoring');
+            if (latestMonitoring) {
+                await updateDoc(doc(db, "clinicLog", latestMonitoring.id), { 
+                    status: 'recovered',
+                    recoveryDate: recoveryDate || new Date().toISOString().split('T')[0],
+                    updatedAt: serverTimestamp()
+                });
+            }
+        }
+    } catch (err) {
+        console.error("Error syncing permanent medical history:", err);
+    }
+  }, []);
+
   const handleCreateNotification = useCallback(async (message: string, type: AppNotification['type']) => {
     const cleanUser = currentUser?.username || 'نظام';
     await addDoc(collection(db, "notifications"), { 
@@ -291,6 +329,7 @@ const App: React.FC = () => {
                             await addDoc(collection(db, "clinicLog"), { ...entry, horseName: hName, horseNumber: hNum, horseId: hId, createdAt: serverTimestamp(), isPermanent: addHist }); 
                             handleCreateNotification(`حالة عيادة: ${hName}`, 'clinic'); 
                             await syncHorseMasterStatus(hId, entry.status);
+                            await syncPermanentMedicalHistory(hId, entry.status, entry.recoveryDate);
                         } catch (err) {
                             console.error("Error adding clinic entry:", err);
                             alert("حدث خطأ أثناء حفظ السجل.");
@@ -301,6 +340,7 @@ const App: React.FC = () => {
                             const {id, horseId, horseName, horseNumber, ...data} = upd; 
                             await updateDoc(doc(db, "clinicLog", id), { ...data, isPermanent: addHist, updatedAt: serverTimestamp() }); 
                             await syncHorseMasterStatus(horseId, upd.status);
+                            await syncPermanentMedicalHistory(horseId, upd.status, upd.recoveryDate);
                         } catch (err) {
                             console.error("Error editing clinic entry:", err);
                             alert("حدث خطأ أثناء تحديث السجل.");
