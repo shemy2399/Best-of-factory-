@@ -308,7 +308,7 @@ const App: React.FC = () => {
   return (
     <div className="flex h-screen bg-gray-900" dir="rtl">
       <Sidebar 
-        activePage={activePage} setActivePage={handleNavigate} onDeleteAllData={() => {}} onExportData={() => {}} onChangeSecurityCode={() => {}} onChangeLoginPassword={() => handleNavigate('admins')} onShowTechnicalGuide={() => {}} onLogout={() => { setIsAuthenticated(false); sessionStorage.clear(); setCurrentUser(null); }} isOpen={isSidebarOpen} setIsOpen={setIsSidebarOpen} isFullScreen={isFullScreen} toggleFullScreen={toggleFullScreen} globalBattalionFilter={globalBattalionFilter} setGlobalBattalionFilter={setGlobalBattalionFilter} currentUser={currentUser}
+        activePage={activePage} setActivePage={handleNavigate} onLogout={() => { setIsAuthenticated(false); sessionStorage.clear(); setCurrentUser(null); }} isOpen={isSidebarOpen} setIsOpen={setIsSidebarOpen} isFullScreen={isFullScreen} toggleFullScreen={toggleFullScreen} globalBattalionFilter={globalBattalionFilter} setGlobalBattalionFilter={setGlobalBattalionFilter} currentUser={currentUser}
       />
       <div className="flex flex-col flex-1 overflow-hidden">
         <TopBar 

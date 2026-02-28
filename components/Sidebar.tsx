@@ -2,16 +2,11 @@
 import React, { useState } from 'react';
 import { NAV_STRUCTURE, NavItem, NavItemGroup } from '../constants';
 import { Page, Horse, AdminUser } from '../types';
-import { KeyIcon, UserCircleIcon, LogoutIcon, DownloadIcon, SupportIcon, FullScreenIcon, ExitFullScreenIcon, ShieldIcon } from './icons';
+import { KeyIcon, LogoutIcon, FullScreenIcon, ExitFullScreenIcon, ShieldIcon } from './icons';
 
 interface SidebarProps {
   activePage: Page;
   setActivePage: (page: Page) => void;
-  onDeleteAllData: () => void;
-  onExportData: () => void;
-  onChangeSecurityCode: () => void;
-  onChangeLoginPassword: () => void;
-  onShowTechnicalGuide: () => void;
   onLogout: () => void;
   isOpen: boolean;
   setIsOpen: (isOpen: boolean) => void;
@@ -58,8 +53,7 @@ const GroupButton: React.FC<{ item: NavItemGroup, isOpen: boolean, onClick: () =
 
 
 const Sidebar: React.FC<SidebarProps> = ({ 
-    activePage, setActivePage, onDeleteAllData, onExportData, onChangeSecurityCode, 
-    onChangeLoginPassword, onShowTechnicalGuide, onLogout, isOpen, setIsOpen,
+    activePage, setActivePage, onLogout, isOpen, setIsOpen,
     isFullScreen, toggleFullScreen, globalBattalionFilter, setGlobalBattalionFilter,
     currentUser
 }) => {
@@ -186,45 +180,6 @@ const Sidebar: React.FC<SidebarProps> = ({
               </div>
            </div>
            <div className="flex flex-col gap-2 pt-2">
-              <button
-                  onClick={onShowTechnicalGuide}
-                  className="w-full flex items-center justify-center px-4 py-2 text-sm font-medium text-blue-300 bg-blue-900/40 rounded-lg hover:bg-blue-800/60 border border-blue-700/60 transition-colors"
-                  aria-label="دليل الدعم الفني"
-              >
-                  <SupportIcon className="w-4 h-4 ml-2" />
-                  دليل الدعم الفني
-              </button>
-              <button
-                  onClick={onExportData}
-                  className="w-full flex items-center justify-center px-4 py-2 text-sm font-medium text-green-300 bg-green-900/40 rounded-lg hover:bg-green-800/60 border border-green-700/60 transition-colors"
-                  aria-label="تصدير نسخة احتياطية"
-              >
-                  <DownloadIcon className="w-4 h-4 ml-2" />
-                  تصدير نسخة احتياطية
-              </button>
-              <button
-                  onClick={onChangeLoginPassword}
-                  className="w-full flex items-center justify-center px-4 py-2 text-sm font-medium text-amber-300 bg-amber-900/40 rounded-lg hover:bg-amber-800/60 border border-amber-700/60 transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-gray-900 focus:ring-amber-500"
-                  aria-label="تغيير بيانات الدخول"
-              >
-                  <UserCircleIcon className="w-4 h-4 ml-2" />
-                  تغيير بيانات الدخول
-              </button>
-              <button
-                  onClick={onChangeSecurityCode}
-                  className="w-full flex items-center justify-center px-4 py-2 text-sm font-medium text-amber-300 bg-amber-900/40 rounded-lg hover:bg-amber-800/60 border border-amber-700/60 transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-gray-900 focus:ring-amber-500"
-                  aria-label="تغيير رمز الحماية"
-              >
-                  <KeyIcon className="w-4 h-4 ml-2" />
-                  تغيير رمز الحماية
-              </button>
-              <button
-                  onClick={onDeleteAllData}
-                  className="w-full px-4 py-2 text-sm font-medium text-red-300 bg-red-900/40 rounded-lg hover:bg-red-800/60 border border-red-700/60 transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-gray-900 focus:ring-red-500"
-                  aria-label="حذف جميع بيانات البرنامج"
-              >
-                  حذف جميع البيانات
-              </button>
               <button
                   onClick={onLogout}
                   className="w-full flex items-center justify-center mt-2 px-4 py-2 text-sm font-medium text-gray-300 bg-gray-700/60 rounded-lg hover:bg-gray-600/80 border border-gray-600/80 transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-gray-900 focus:ring-gray-500"
