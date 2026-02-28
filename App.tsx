@@ -207,10 +207,7 @@ const App: React.FC = () => {
    * نقوم بتحديث حالة "الدخول" الأصلية في السجل الدائم لتصبح "شفاء".
    */
   const syncPermanentMedicalHistory = useCallback(async (horseId: string, status: MedicalRecordEntry['status'], recoveryDate?: string) => {
-    if (status === 'monitoring') return;
-
     try {
-        // البحث عن السجلات الدائمة لهذا الحصان (استعلام بسيط لتجنب مشاكل الفهارس المركبة)
         const q = query(
             collection(db, "clinicLog"),
             where("horseId", "==", horseId)
@@ -218,20 +215,31 @@ const App: React.FC = () => {
         const snapshot = await getDocs(q);
         
         if (!snapshot.empty) {
-            // تصفية السجلات الدائمة وترتيبها يدوياً
             const permanentEntries = snapshot.docs
                 .map(d => ({ id: d.id, ...d.data() } as any))
                 .filter(d => d.isPermanent === true)
                 .sort((a, b) => b.date.localeCompare(a.date));
 
-            // البحث عن آخر حالة "متابعة" لتحديثها إلى "شفاء"
-            const latestMonitoring = permanentEntries.find(d => d.status === 'monitoring');
-            if (latestMonitoring) {
-                await updateDoc(doc(db, "clinicLog", latestMonitoring.id), { 
-                    status: 'recovered',
-                    recoveryDate: recoveryDate || new Date().toISOString().split('T')[0],
-                    updatedAt: serverTimestamp()
-                });
+            if (status === 'recovered' || status === 'healthy') {
+                // البحث عن آخر حالة "متابعة" لتحديثها إلى "شفاء"
+                const latestMonitoring = permanentEntries.find(d => d.status === 'monitoring');
+                if (latestMonitoring) {
+                    await updateDoc(doc(db, "clinicLog", latestMonitoring.id), { 
+                        status: 'recovered',
+                        recoveryDate: recoveryDate || new Date().toISOString().split('T')[0],
+                        updatedAt: serverTimestamp()
+                    });
+                }
+            } else if (status === 'monitoring') {
+                // إذا تم تغيير حالة تحديث إلى "متابعة"، نضمن أن السجل الدائم أيضاً "متابعة"
+                const latestRecovered = permanentEntries.find(d => d.status === 'recovered');
+                if (latestRecovered) {
+                    await updateDoc(doc(db, "clinicLog", latestRecovered.id), { 
+                        status: 'monitoring',
+                        recoveryDate: deleteField(),
+                        updatedAt: serverTimestamp()
+                    });
+                }
             }
         }
     } catch (err) {

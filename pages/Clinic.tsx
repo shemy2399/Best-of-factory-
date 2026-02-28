@@ -310,18 +310,17 @@ const ClinicPage: React.FC<ClinicPageProps> = ({ horses, clinicLog, protocols, o
             !horseIdsOnDate.has(entry.horseId)
         );
 
-        // 3. نأخذ فقط أحدث سجل لكل حصان من الحالات المستمرة
-        const latestOngoing: Record<string, ClinicLogEntry> = {};
-        ongoingCases.forEach(entry => {
-            if (!latestOngoing[entry.horseId] || entry.date > latestOngoing[entry.horseId].date) {
-                latestOngoing[entry.horseId] = entry;
-            }
-        });
+        // 3. الحالات التي تم شفاؤها اليوم (حتى لو السجل قديم وتم تعديله يدوياً)
+        const recoveredToday = logForBattalion.filter(entry =>
+            entry.status === 'recovered' &&
+            entry.recoveryDate === selectedDate &&
+            !horseIdsOnDate.has(entry.horseId)
+        );
 
-        // دمج القائمتين
-        logForBattalion = [...Object.values(latestOnDate), ...Object.values(latestOngoing)];
+        // تجميع السجلات للعرض
+        logForBattalion = [...Object.values(latestOnDate), ...ongoingCases, ...recoveredToday];
 
-        // حساب تاريخ الدخول الأصلي
+        // حساب تاريخ الدخول الأصلي لكل حالة معروضة
         logForBattalion = logForBattalion.map(entry => {
              const horseHistory = clinicLog
                 .filter(e => e.horseId === entry.horseId && e.date <= entry.date)
@@ -359,12 +358,18 @@ const ClinicPage: React.FC<ClinicPageProps> = ({ horses, clinicLog, protocols, o
         allBattalionRecords.forEach(entry => {
             let currentEp = horseEpisodes[entry.horseId];
             
-            // Check if we should start a new episode
+            // تحديد ما إذا كان السجل يبدأ حلقة علاجية جديدة
             let isNew = true;
             if (currentEp) {
                 const lastRecord = currentEp.records[currentEp.records.length - 1];
-                // If previous was monitoring, this is a continuation (even if this one is recovered)
+                
+                // يستمر السجل في نفس الحلقة إذا:
+                // 1. كان السجل السابق "متابعة"
+                // 2. أو كان السجل الحالي "شفاء" والسابق "شفاء" (توحيد تحديثات الشفاء)
+                // 3. أو كان السجل الحالي "سليم" (إغلاق الحلقة)
                 if (lastRecord.status === 'monitoring') {
+                    isNew = false;
+                } else if (lastRecord.status === 'recovered' && (entry.status === 'recovered' || entry.status === 'healthy')) {
                     isNew = false;
                 }
             }
