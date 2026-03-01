@@ -160,10 +160,14 @@ const AddVaccinationModal: React.FC<{
 };
 
 const EditVaccinationModal: React.FC<{
+  horses: Horse[];
   vaccination: Vaccination;
   onClose: () => void;
   onEdit: (vaccination: Vaccination) => void;
-}> = ({ vaccination, onClose, onEdit }) => {
+}> = ({ horses, vaccination, onClose, onEdit }) => {
+    
+    const horse = horses.find(h => h.id === vaccination.horseId);
+    const horseDisplayName = horse ? `${horse.name} (${horse.number})` : vaccination.horseName;
     
     const calculateMonthDiff = (startDateStr: string, endDateStr: string): number => {
       if (!startDateStr || !endDateStr) return 0;
@@ -220,7 +224,10 @@ const EditVaccinationModal: React.FC<{
                     <button onClick={onClose} className="text-gray-400 hover:text-gray-200"><XMarkIcon className="w-6 h-6" /></button>
                 </div>
                 <form onSubmit={handleSubmit} className="space-y-4">
-                    <input value={formData.horseName} className="w-full p-3 bg-gray-900 border border-gray-700 rounded-lg text-gray-400" readOnly />
+                    <div className="mb-4">
+                        <label className="block mb-2 font-medium text-gray-300">الحصان</label>
+                        <input value={horseDisplayName} className="w-full p-3 bg-gray-900 border border-gray-700 rounded-lg text-gray-400" readOnly />
+                    </div>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div>
                            <label className="block mb-2 font-medium text-gray-300">النوع</label>
@@ -265,21 +272,27 @@ const EditVaccinationModal: React.FC<{
 };
 
 const ConfirmDeleteModal: React.FC<{
+  horses: Horse[];
   item: Vaccination;
   onClose: () => void;
   onConfirm: (itemId: string) => void;
-}> = ({ item, onClose, onConfirm }) => (
-    <div className="fixed inset-0 bg-black bg-opacity-75 flex justify-center items-center z-50">
-        <div className="bg-gray-800 rounded-xl shadow-2xl p-8 w-full max-w-md text-center border border-gray-700">
-            <h3 className="text-xl font-bold text-gray-100 mt-5">تأكيد الحذف</h3>
-            <p className="text-gray-400 mt-2">هل أنت متأكد من حذف سجل <span className="font-bold text-gray-200">{item.productName}</span> للحصان <span className="font-bold text-gray-200">{item.horseName}</span>؟</p>
-            <div className="mt-8 flex justify-center gap-4">
-                 <button type="button" onClick={() => onConfirm(item.id)} className="px-8 py-2 bg-red-600 text-white font-semibold rounded-lg hover:bg-red-700">نعم، قم بالحذف</button>
-                 <button type="button" onClick={onClose} className="px-8 py-2 bg-gray-600 text-gray-100 font-semibold rounded-lg hover:bg-gray-500">إلغاء</button>
+}> = ({ horses, item, onClose, onConfirm }) => {
+    const horse = horses.find(h => h.id === item.horseId);
+    const horseDisplayName = horse ? `${horse.name} (${horse.number})` : item.horseName;
+    
+    return (
+        <div className="fixed inset-0 bg-black bg-opacity-75 flex justify-center items-center z-50">
+            <div className="bg-gray-800 rounded-xl shadow-2xl p-8 w-full max-w-md text-center border border-gray-700">
+                <h3 className="text-xl font-bold text-gray-100 mt-5">تأكيد الحذف</h3>
+                <p className="text-gray-400 mt-2">هل أنت متأكد من حذف سجل <span className="font-bold text-gray-200">{item.productName}</span> للحصان <span className="font-bold text-gray-200">{horseDisplayName}</span>؟</p>
+                <div className="mt-8 flex justify-center gap-4">
+                     <button type="button" onClick={() => onConfirm(item.id)} className="px-8 py-2 bg-red-600 text-white font-semibold rounded-lg hover:bg-red-700">نعم، قم بالحذف</button>
+                     <button type="button" onClick={onClose} className="px-8 py-2 bg-gray-600 text-gray-100 font-semibold rounded-lg hover:bg-gray-500">إلغاء</button>
+                </div>
             </div>
         </div>
-    </div>
-);
+    );
+};
 
 
 const VaccinationsPage: React.FC<VaccinationsPageProps> = ({ horses, vaccinations, onAddVaccination, onEditVaccination, onDeleteVaccination, globalBattalionFilter, setGlobalBattalionFilter }) => {
@@ -376,8 +389,8 @@ const VaccinationsPage: React.FC<VaccinationsPageProps> = ({ horses, vaccination
     return (
         <div className="space-y-6">
             {isAddModalOpen && <AddVaccinationModal horses={horses.filter(h => h.battalion === globalBattalionFilter)} onClose={() => setIsAddModalOpen(false)} onAdd={onAddVaccination} />}
-            {editingVaccination && <EditVaccinationModal vaccination={editingVaccination} onClose={() => setEditingVaccination(null)} onEdit={onEditVaccination} />}
-            {deletingVaccination && <ConfirmDeleteModal item={deletingVaccination} onClose={() => setDeletingVaccination(null)} onConfirm={onDeleteVaccination} />}
+            {editingVaccination && <EditVaccinationModal horses={horses} vaccination={editingVaccination} onClose={() => setEditingVaccination(null)} onEdit={onEditVaccination} />}
+            {deletingVaccination && <ConfirmDeleteModal horses={horses} item={deletingVaccination} onClose={() => setDeletingVaccination(null)} onConfirm={onDeleteVaccination} />}
 
             <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
                 <div>
@@ -438,7 +451,12 @@ const VaccinationsPage: React.FC<VaccinationsPageProps> = ({ horses, vaccination
                                     <tbody className="divide-y divide-gray-600">
                                         {group.items.map((v) => (
                                             <tr key={v.id} className="hover:bg-gray-600/50 transition-colors">
-                                                <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-100">{v.horseName}</td>
+                                                <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-100">
+                                                    <div className="flex flex-col">
+                                                        <span>{v.horseName}</span>
+                                                        <span className="text-xs text-gray-400">رقم: {horses.find(h => h.id === v.horseId)?.number || '---'}</span>
+                                                    </div>
+                                                </td>
                                                 <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-300">
                                                     <span className={`px-2 py-1 text-xs font-medium rounded-full ${v.type === 'vaccination' ? 'bg-cyan-500/20 text-cyan-300' : 'bg-purple-500/20 text-purple-300'}`}>
                                                         {v.type === 'vaccination' ? 'تحصين' : 'تجريع'}
