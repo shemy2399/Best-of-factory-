@@ -1,6 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import { Horse, Vaccination } from '../types';
-import { PlusIcon, PencilIcon, TrashIcon, XMarkIcon, VaccinationIcon } from '../components/icons';
+import { PlusIcon, PencilIcon, TrashIcon, XMarkIcon, VaccinationIcon, ChevronDownIcon, ChevronUpIcon } from '../components/icons';
 import DateInput from '../components/DateInput';
 
 interface VaccinationsPageProps {
@@ -286,6 +286,7 @@ const VaccinationsPage: React.FC<VaccinationsPageProps> = ({ horses, vaccination
     const [isAddModalOpen, setIsAddModalOpen] = useState(false);
     const [editingVaccination, setEditingVaccination] = useState<Vaccination | null>(null);
     const [deletingVaccination, setDeletingVaccination] = useState<Vaccination | null>(null);
+    const [expandedDates, setExpandedDates] = useState<Record<string, boolean>>({});
 
     const BATTALIONS: Exclude<Horse['battalion'], 'الكل'>[] = ['الكتيبة الاولى', 'الكتيبة الثانية', 'الكتيبة الثالثة', 'نادي الفروسية'];
 
@@ -294,6 +295,43 @@ const VaccinationsPage: React.FC<VaccinationsPageProps> = ({ horses, vaccination
         const horseIdsInBattalion = new Set(horses.filter(h => h.battalion === globalBattalionFilter).map(h => h.id));
         return vaccinations.filter(v => horseIdsInBattalion.has(v.horseId));
     }, [vaccinations, horses, globalBattalionFilter]);
+
+    const groupedVaccinations = useMemo(() => {
+        const groups: Record<string, Vaccination[]> = {};
+        vaccinationsForSelectedBattalion.forEach(v => {
+            if (!groups[v.date]) groups[v.date] = [];
+            groups[v.date].push(v);
+        });
+
+        return Object.keys(groups)
+            .sort((a, b) => new Date(b).getTime() - new Date(a).getTime())
+            .map(date => ({
+                date,
+                items: groups[date]
+            }));
+    }, [vaccinationsForSelectedBattalion]);
+
+    // Expand the first group by default when data loads
+    React.useEffect(() => {
+        if (groupedVaccinations.length > 0 && Object.keys(expandedDates).length === 0) {
+            setExpandedDates({ [groupedVaccinations[0].date]: true });
+        }
+    }, [groupedVaccinations]);
+
+    const toggleDate = (date: string) => {
+        setExpandedDates(prev => ({ ...prev, [date]: !prev[date] }));
+    };
+
+    const toggleAll = () => {
+        const allExpanded = groupedVaccinations.every(g => expandedDates[g.date]);
+        if (allExpanded) {
+            setExpandedDates({});
+        } else {
+            const newState: Record<string, boolean> = {};
+            groupedVaccinations.forEach(g => newState[g.date] = true);
+            setExpandedDates(newState);
+        }
+    };
 
     const getDueDateBadge = (dueDateString?: string) => {
         if (!dueDateString) return <span className="text-gray-500">لا يوجد</span>;
@@ -347,6 +385,14 @@ const VaccinationsPage: React.FC<VaccinationsPageProps> = ({ horses, vaccination
                   <p className="text-gray-400 mt-2">إدارة سجلات التحصين والتجريع للخيول في الكتيبة المحددة.</p>
                 </div>
                 <div className="flex items-center gap-4 w-full sm:w-auto">
+                  {groupedVaccinations.length > 0 && (
+                    <button 
+                      onClick={toggleAll}
+                      className="px-4 py-2 bg-gray-700 text-gray-200 font-medium rounded-lg hover:bg-gray-600 border border-gray-600 transition-colors"
+                    >
+                      {groupedVaccinations.every(g => expandedDates[g.date]) ? 'طي الكل' : 'توسيع الكل'}
+                    </button>
+                  )}
                   <button onClick={() => setIsAddModalOpen(true)} className="flex items-center justify-center w-full sm:w-auto px-4 py-2 bg-amber-500 text-white font-semibold rounded-lg hover:bg-amber-600 shadow-md">
                     <PlusIcon className="w-5 h-5 ml-2" />
                     تسجيل جديد
@@ -354,46 +400,68 @@ const VaccinationsPage: React.FC<VaccinationsPageProps> = ({ horses, vaccination
                 </div>
             </div>
 
-            <div className="bg-gray-700 rounded-xl shadow-lg overflow-hidden">
-                <div className="overflow-x-auto">
-                    <table className="min-w-full divide-y divide-gray-600">
-                    <thead className="bg-gray-900/50">
-                        <tr>
-                        <th className="px-6 py-3 text-right text-xs font-medium text-gray-400 uppercase">التاريخ</th>
-                        <th className="px-6 py-3 text-right text-xs font-medium text-gray-400 uppercase">اسم الحصان</th>
-                        <th className="px-6 py-3 text-right text-xs font-medium text-gray-400 uppercase">النوع</th>
-                        <th className="px-6 py-3 text-right text-xs font-medium text-gray-400 uppercase">اسم المنتج</th>
-                        <th className="px-6 py-3 text-right text-xs font-medium text-gray-400 uppercase">الميعاد القادم</th>
-                        <th className="px-6 py-3 text-right text-xs font-medium text-gray-400 uppercase">الإجراءات</th>
-                        </tr>
-                    </thead>
-                    <tbody className="divide-y divide-gray-600">
-                        {vaccinationsForSelectedBattalion.length > 0 ? vaccinationsForSelectedBattalion.map((v) => (
-                        <tr key={v.id} className="hover:bg-gray-600/50 transition-colors">
-                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-400">{v.date}</td>
-                            <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-100">{v.horseName}</td>
-                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-300">
-                                <span className={`px-2 py-1 text-xs font-medium rounded-full ${v.type === 'vaccination' ? 'bg-cyan-500/20 text-cyan-300' : 'bg-purple-500/20 text-purple-300'}`}>
-                                    {v.type === 'vaccination' ? 'تحصين' : 'تجريع'}
-                                </span>
-                            </td>
-                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-300">{v.productName}</td>
-                            <td className="px-6 py-4 whitespace-nowrap text-sm">{getDueDateBadge(v.nextDueDate)}</td>
-                            <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium space-x-2 space-x-reverse">
-                            <button onClick={() => setEditingVaccination(v)} className="text-gray-400 hover:text-gray-200 p-2 rounded-md hover:bg-gray-800/50"><PencilIcon className="w-5 h-5"/></button>
-                            <button onClick={() => setDeletingVaccination(v)} className="text-red-500 hover:text-red-400 p-2 rounded-md hover:bg-gray-800/50"><TrashIcon className="w-5 h-5"/></button>
-                            </td>
-                        </tr>
-                        )) : (
-                        <tr>
-                            <td colSpan={6} className="text-center py-10 text-gray-400">
-                            لا توجد سجلات لهذه الكتيبة.
-                            </td>
-                        </tr>
+            <div className="space-y-4">
+                {groupedVaccinations.length > 0 ? groupedVaccinations.map((group) => (
+                    <div key={group.date} className="bg-gray-700 rounded-xl shadow-lg overflow-hidden border border-gray-600">
+                        <button 
+                            onClick={() => toggleDate(group.date)}
+                            className="w-full px-6 py-4 flex items-center justify-between bg-gray-800 hover:bg-gray-750 transition-colors"
+                        >
+                            <div className="flex items-center gap-4">
+                                <div className="bg-amber-500/20 p-2 rounded-lg">
+                                    <VaccinationIcon className="w-5 h-5 text-amber-400" />
+                                </div>
+                                <div className="text-right">
+                                    <h3 className="text-lg font-bold text-white">{group.date}</h3>
+                                    <p className="text-sm text-gray-400">{group.items.length} سجلات</p>
+                                </div>
+                            </div>
+                            {expandedDates[group.date] ? (
+                                <ChevronUpIcon className="w-6 h-6 text-gray-400" />
+                            ) : (
+                                <ChevronDownIcon className="w-6 h-6 text-gray-400" />
+                            )}
+                        </button>
+
+                        {expandedDates[group.date] && (
+                            <div className="overflow-x-auto border-t border-gray-600">
+                                <table className="min-w-full divide-y divide-gray-600">
+                                    <thead className="bg-gray-900/30">
+                                        <tr>
+                                            <th className="px-6 py-3 text-right text-xs font-medium text-gray-400 uppercase">اسم الحصان</th>
+                                            <th className="px-6 py-3 text-right text-xs font-medium text-gray-400 uppercase">النوع</th>
+                                            <th className="px-6 py-3 text-right text-xs font-medium text-gray-400 uppercase">اسم المنتج</th>
+                                            <th className="px-6 py-3 text-right text-xs font-medium text-gray-400 uppercase">الميعاد القادم</th>
+                                            <th className="px-6 py-3 text-right text-xs font-medium text-gray-400 uppercase">الإجراءات</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody className="divide-y divide-gray-600">
+                                        {group.items.map((v) => (
+                                            <tr key={v.id} className="hover:bg-gray-600/50 transition-colors">
+                                                <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-100">{v.horseName}</td>
+                                                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-300">
+                                                    <span className={`px-2 py-1 text-xs font-medium rounded-full ${v.type === 'vaccination' ? 'bg-cyan-500/20 text-cyan-300' : 'bg-purple-500/20 text-purple-300'}`}>
+                                                        {v.type === 'vaccination' ? 'تحصين' : 'تجريع'}
+                                                    </span>
+                                                </td>
+                                                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-300">{v.productName}</td>
+                                                <td className="px-6 py-4 whitespace-nowrap text-sm">{getDueDateBadge(v.nextDueDate)}</td>
+                                                <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium space-x-2 space-x-reverse">
+                                                    <button onClick={() => setEditingVaccination(v)} className="text-gray-400 hover:text-gray-200 p-2 rounded-md hover:bg-gray-800/50"><PencilIcon className="w-5 h-5"/></button>
+                                                    <button onClick={() => setDeletingVaccination(v)} className="text-red-500 hover:text-red-400 p-2 rounded-md hover:bg-gray-800/50"><TrashIcon className="w-5 h-5"/></button>
+                                                </td>
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </table>
+                            </div>
                         )}
-                    </tbody>
-                    </table>
-                </div>
+                    </div>
+                )) : (
+                    <div className="bg-gray-700 rounded-xl p-10 text-center text-gray-400 border border-dashed border-gray-600">
+                        لا توجد سجلات لهذه الكتيبة.
+                    </div>
+                )}
             </div>
         </div>
     );
