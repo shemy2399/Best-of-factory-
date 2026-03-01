@@ -304,21 +304,41 @@ const ClinicPage: React.FC<ClinicPageProps> = ({ horses, clinicLog, protocols, o
         const horseIdsOnDate = new Set(Object.keys(latestOnDate));
 
         // 2. الحالات المستمرة (monitoring) من أيام سابقة ولم يتم تحديثها اليوم
-        const ongoingCases = logForBattalion.filter(entry => 
+        const ongoingCasesRaw = logForBattalion.filter(entry => 
             entry.date < selectedDate && 
             entry.status === 'monitoring' && 
             !horseIdsOnDate.has(entry.horseId)
         );
 
+        // نأخذ فقط أحدث سجل لكل حصان من الحالات المستمرة
+        const latestOngoing: Record<string, ClinicLogEntry> = {};
+        ongoingCasesRaw.forEach(entry => {
+            if (!latestOngoing[entry.horseId] || entry.date > latestOngoing[entry.horseId].date || (entry.date === latestOngoing[entry.horseId].date && entry.createdAt > latestOngoing[entry.horseId].createdAt)) {
+                latestOngoing[entry.horseId] = entry;
+            }
+        });
+
         // 3. الحالات التي تم شفاؤها اليوم (حتى لو السجل قديم وتم تعديله يدوياً)
-        const recoveredToday = logForBattalion.filter(entry =>
+        const recoveredTodayRaw = logForBattalion.filter(entry =>
             entry.status === 'recovered' &&
             entry.recoveryDate === selectedDate &&
             !horseIdsOnDate.has(entry.horseId)
         );
 
+        // نأخذ فقط أحدث سجل لكل حصان من حالات الشفاء اليوم
+        const latestRecoveredToday: Record<string, ClinicLogEntry> = {};
+        recoveredTodayRaw.forEach(entry => {
+            if (!latestRecoveredToday[entry.horseId] || entry.createdAt > latestRecoveredToday[entry.horseId].createdAt) {
+                latestRecoveredToday[entry.horseId] = entry;
+            }
+        });
+
         // تجميع السجلات للعرض
-        logForBattalion = [...Object.values(latestOnDate), ...ongoingCases, ...recoveredToday];
+        logForBattalion = [
+            ...Object.values(latestOnDate), 
+            ...Object.values(latestOngoing), 
+            ...Object.values(latestRecoveredToday)
+        ];
 
         // حساب تاريخ الدخول الأصلي لكل حالة معروضة
         logForBattalion = logForBattalion.map(entry => {
