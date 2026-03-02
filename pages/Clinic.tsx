@@ -289,62 +289,41 @@ const ClinicPage: React.FC<ClinicPageProps> = ({ horses, clinicLog, protocols, o
     const horseIdsInBattalion = new Set(horsesForSelectedBattalion.map(h => h.id));
     let logForBattalion = clinicLog.filter(entry => horseIdsInBattalion.has(entry.horseId));
     if (viewType === 'daily') {
-        // ... (Existing Daily Logic) ...
-        // 1. السجلات المسجلة فعلياً في هذا اليوم
-        const recordsOnDate = logForBattalion.filter(entry => entry.date === selectedDate);
+        // تجميع السجلات حسب الحصان للوصول لأحدث حالة
+        const horseLatestRecords: Record<string, ClinicLogEntry> = {};
         
-        // تجميع سجلات اليوم لكل حصان (عرض الأحدث فقط)
-        const latestOnDate: Record<string, ClinicLogEntry> = {};
-        recordsOnDate.forEach(entry => {
-            if (!latestOnDate[entry.horseId] || entry.createdAt > latestOnDate[entry.horseId].createdAt) {
-                latestOnDate[entry.horseId] = entry;
+        // فرز السجلات حسب التاريخ ثم وقت الإنشاء (الأحدث أولاً)
+        const sortedLogs = [...logForBattalion].sort((a, b) => {
+            if (a.date !== b.date) return b.date.localeCompare(a.date);
+            return (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0);
+        });
+
+        // نمر على السجلات ونأخذ أحدث سجل لكل حصان بشرط أن يكون تاريخه <= التاريخ المختار
+        sortedLogs.forEach(entry => {
+            if (entry.date <= selectedDate && !horseLatestRecords[entry.horseId]) {
+                horseLatestRecords[entry.horseId] = entry;
             }
         });
 
-        const horseIdsOnDate = new Set(Object.keys(latestOnDate));
+        // تصفية السجلات التي يجب أن تظهر في كشف اليوم
+        logForBattalion = Object.values(horseLatestRecords).filter(entry => {
+            // 1. يظهر إذا كان مسجلاً في نفس اليوم المختار
+            if (entry.date === selectedDate) return true;
+            
+            // 2. يظهر إذا كانت حالته "متابعة" (حالة مستمرة من أيام سابقة)
+            if (entry.status === 'monitoring') return true;
+            
+            // 3. يظهر إذا كان "شفاء" وتاريخ الشفاء هو اليوم المختار (حتى لو السجل قديم)
+            if (entry.status === 'recovered' && entry.recoveryDate === selectedDate) return true;
 
-        // 2. الحالات المستمرة (monitoring) من أيام سابقة ولم يتم تحديثها اليوم
-        const ongoingCasesRaw = logForBattalion.filter(entry => 
-            entry.date < selectedDate && 
-            entry.status === 'monitoring' && 
-            !horseIdsOnDate.has(entry.horseId)
-        );
-
-        // نأخذ فقط أحدث سجل لكل حصان من الحالات المستمرة
-        const latestOngoing: Record<string, ClinicLogEntry> = {};
-        ongoingCasesRaw.forEach(entry => {
-            if (!latestOngoing[entry.horseId] || entry.date > latestOngoing[entry.horseId].date || (entry.date === latestOngoing[entry.horseId].date && entry.createdAt > latestOngoing[entry.horseId].createdAt)) {
-                latestOngoing[entry.horseId] = entry;
-            }
+            return false;
         });
 
-        // 3. الحالات التي تم شفاؤها اليوم (حتى لو السجل قديم وتم تعديله يدوياً)
-        const recoveredTodayRaw = logForBattalion.filter(entry =>
-            entry.status === 'recovered' &&
-            entry.recoveryDate === selectedDate &&
-            !horseIdsOnDate.has(entry.horseId)
-        );
-
-        // نأخذ فقط أحدث سجل لكل حصان من حالات الشفاء اليوم
-        const latestRecoveredToday: Record<string, ClinicLogEntry> = {};
-        recoveredTodayRaw.forEach(entry => {
-            if (!latestRecoveredToday[entry.horseId] || entry.createdAt > latestRecoveredToday[entry.horseId].createdAt) {
-                latestRecoveredToday[entry.horseId] = entry;
-            }
-        });
-
-        // تجميع السجلات للعرض
-        logForBattalion = [
-            ...Object.values(latestOnDate), 
-            ...Object.values(latestOngoing), 
-            ...Object.values(latestRecoveredToday)
-        ];
-
-        // حساب تاريخ الدخول الأصلي لكل حالة معروضة
+        // حساب تاريخ الدخول الأصلي لكل حالة معروضة (لأغراض العرض فقط)
         logForBattalion = logForBattalion.map(entry => {
              const horseHistory = clinicLog
                 .filter(e => e.horseId === entry.horseId && e.date <= entry.date)
-                .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+                .sort((a, b) => a.date.localeCompare(b.date));
             
             let admissionDate = entry.date;
             for (let i = horseHistory.length - 1; i >= 0; i--) {
@@ -357,10 +336,11 @@ const ClinicPage: React.FC<ClinicPageProps> = ({ horses, clinicLog, protocols, o
             return { ...entry, originalAdmissionDate: admissionDate };
         });
 
+        // ترتيب العرض: المتابعة أولاً، ثم الشفاء، ثم السليم
         logForBattalion.sort((a, b) => {
             const statusOrder: any = { monitoring: 0, recovered: 1, healthy: 2 };
             if (statusOrder[a.status] !== statusOrder[b.status]) return statusOrder[a.status] - statusOrder[b.status];
-            return new Date(b.date).getTime() - new Date(a.date).getTime();
+            return b.date.localeCompare(a.date);
         });
 
     } else {
