@@ -55,7 +55,9 @@ const Dashboard: React.FC<DashboardProps> = ({ horses, medications, clinicLog, g
         const horseEntries = clinicLog.filter(e => e.horseId === id).sort((a, b) => {
             const dateComp = b.date.localeCompare(a.date);
             if (dateComp !== 0) return dateComp;
-            return (b as any).createdAt?.seconds - (a as any).createdAt?.seconds;
+            const aTime = (a as any).createdAt?.seconds || (typeof (a as any).createdAt?.toMillis === 'function' ? (a as any).createdAt.toMillis() / 1000 : 0);
+            const bTime = (b as any).createdAt?.seconds || (typeof (b as any).createdAt?.toMillis === 'function' ? (b as any).createdAt.toMillis() / 1000 : 0);
+            return bTime - aTime;
         });
 
         if (horseEntries.length > 0) {

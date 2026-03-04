@@ -295,7 +295,10 @@ const ClinicPage: React.FC<ClinicPageProps> = ({ horses, clinicLog, protocols, o
         // فرز السجلات حسب التاريخ ثم وقت الإنشاء (الأحدث أولاً)
         const sortedLogs = [...logForBattalion].sort((a, b) => {
             if (a.date !== b.date) return b.date.localeCompare(a.date);
-            return (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0);
+            // التعامل مع طوابع زمنية مختلفة (seconds أو toMillis) أو عدم وجودها لضمان ترتيب دقيق
+            const aTime = a.createdAt?.seconds || (typeof a.createdAt?.toMillis === 'function' ? a.createdAt.toMillis() / 1000 : 0);
+            const bTime = b.createdAt?.seconds || (typeof b.createdAt?.toMillis === 'function' ? b.createdAt.toMillis() / 1000 : 0);
+            return bTime - aTime;
         });
 
         // نمر على السجلات ونأخذ أحدث سجل لكل حصان بشرط أن يكون تاريخه <= التاريخ المختار
@@ -307,15 +310,18 @@ const ClinicPage: React.FC<ClinicPageProps> = ({ horses, clinicLog, protocols, o
 
         // تصفية السجلات التي يجب أن تظهر في كشف اليوم
         logForBattalion = Object.values(horseLatestRecords).filter(entry => {
-            // 1. يظهر إذا كان مسجلاً في نفس اليوم المختار
+            // 1. يظهر إذا كان مسجلاً في نفس اليوم المختار (بغض النظر عن الحالة)
             if (entry.date === selectedDate) return true;
             
             // 2. يظهر إذا كانت حالته "متابعة" (حالة مستمرة من أيام سابقة)
             if (entry.status === 'monitoring') return true;
             
-            // 3. يظهر إذا كان "شفاء" وتاريخ الشفاء هو اليوم المختار (حتى لو السجل قديم)
-            if (entry.status === 'recovered' && entry.recoveryDate === selectedDate) return true;
+            // 3. يظهر إذا كان "شفاء" وتاريخ الشفاء هو اليوم المختار
+            // نستخدم تاريخ السجل كبديل إذا لم يتم تحديد تاريخ شفاء منفصل
+            const rDate = entry.recoveryDate || entry.date;
+            if (entry.status === 'recovered' && rDate === selectedDate) return true;
 
+            // أي حالة أخرى (مثل "سليم" قديم أو "شفاء" قديم) لا تظهر في الكشف اليومي
             return false;
         });
 
