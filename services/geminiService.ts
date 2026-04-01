@@ -3,7 +3,7 @@ import { GoogleGenAI } from "@google/genai";
 
 // This check ensures the API key is available.
 if (!process.env.API_KEY) {
-    throw new Error("API_KEY environment variable not set.");
+    console.warn("Warning: API_KEY environment variable not set. Diagnostic Assistant will not work.");
 }
 
 const systemInstruction = `You are an expert equine veterinary diagnostic assistant. Your knowledge is based on established, peer-reviewed veterinary textbooks and scientific journals such as 'Equine Internal Medicine' by Reed, Bayly, & Sellon, 'Adams and Stashak's Lameness in Horses', and 'Current Therapy in Equine Medicine'. When a user provides a set of clinical signs, you must:

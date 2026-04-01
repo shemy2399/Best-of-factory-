@@ -67,6 +67,8 @@ export interface Horse {
   status: 'healthy' | 'monitoring';
   medicalHistory: MedicalRecordEntry[];
   createdAt: string;
+  fatherName?: string;
+  motherName?: string;
   pregnancy?: {
     conceptionDate: string;
     expectedDueDate: string;

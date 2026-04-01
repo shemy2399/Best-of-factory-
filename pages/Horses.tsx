@@ -86,6 +86,12 @@ const HorseRow = React.memo(({ horse, effectiveStatus, onView, onEdit, onDelete 
                         {horse.rasan && (
                             <span className="text-[10px] text-amber-500/80 bg-amber-900/10 px-1.5 py-0.5 rounded border border-amber-500/10">{horse.rasan}</span>
                         )}
+                        {horse.fatherName && (
+                            <span className="text-[10px] text-blue-300 bg-blue-900/20 px-1.5 py-0.5 rounded border border-blue-500/20">الأب: {horse.fatherName}</span>
+                        )}
+                        {horse.motherName && (
+                            <span className="text-[10px] text-pink-300 bg-pink-900/20 px-1.5 py-0.5 rounded border border-pink-500/20">الأم: {horse.motherName}</span>
+                        )}
                     </div>
                 </div>
             </td>
@@ -190,6 +196,14 @@ const HorseViewModal = ({ horse, vaccinations, clinicLog, onClose }: { horse: Ho
                     <div className="bg-gray-800/50 p-4 rounded-2xl border border-gray-700/50">
                         <p className="text-[10px] text-gray-500 font-bold uppercase mb-1">Microchip</p>
                         <p className="text-lg font-mono font-bold text-cyan-400">{horse.microchipNumber || '-'}</p>
+                    </div>
+                    <div className="bg-gray-800/50 p-4 rounded-2xl border border-gray-700/50">
+                        <p className="text-[10px] text-gray-500 font-bold uppercase mb-1">الاب</p>
+                        <p className="text-lg font-bold text-white truncate">{horse.fatherName || '-'}</p>
+                    </div>
+                    <div className="bg-gray-800/50 p-4 rounded-2xl border border-gray-700/50">
+                        <p className="text-[10px] text-gray-500 font-bold uppercase mb-1">الام</p>
+                        <p className="text-lg font-bold text-white truncate">{horse.motherName || '-'}</p>
                     </div>
                 </div>
                 {(horse.pregnancy || horse.lactation) && (
@@ -366,7 +380,9 @@ const HorseFormModal = ({ horse, onClose, onSave }: { horse?: Horse; onClose: ()
     dateOfBirth: horse?.dateOfBirth || '',
     battalion: horse?.battalion || 'الكتيبة الاولى',
     microchipNumber: horse?.microchipNumber || '',
-    status: horse?.status || 'healthy'
+    status: horse?.status || 'healthy',
+    fatherName: horse?.fatherName || '',
+    motherName: horse?.motherName || ''
   });
   const [isPregnant, setIsPregnant] = useState(!!horse?.pregnancy);
   const [pregnancyData, setPregnancyData] = useState({ conceptionDate: horse?.pregnancy?.conceptionDate || '', expectedDueDate: horse?.pregnancy?.expectedDueDate || '', notes: horse?.pregnancy?.notes || '' });
@@ -461,6 +477,16 @@ const HorseFormModal = ({ horse, onClose, onSave }: { horse?: Horse; onClose: ()
               <div className="space-y-1.5">
                 <label className="text-xs font-black text-gray-500">الرسن</label>
                 <input value={formData.rasan} onChange={e => setFormData({...formData, rasan: e.target.value})} className="w-full p-3.5 bg-gray-800 border border-gray-700 rounded-xl text-white font-bold outline-none" />
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-black text-gray-500">الأب</label>
+                    <input value={formData.fatherName} onChange={e => setFormData({...formData, fatherName: e.target.value})} className="w-full p-3.5 bg-gray-800 border border-gray-700 rounded-xl text-white font-bold outline-none" placeholder="اختياري" />
+                  </div>
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-black text-gray-500">الأم</label>
+                    <input value={formData.motherName} onChange={e => setFormData({...formData, motherName: e.target.value})} className="w-full p-3.5 bg-gray-800 border border-gray-700 rounded-xl text-white font-bold outline-none" placeholder="اختياري" />
+                  </div>
               </div>
             </div>
           )}
@@ -580,7 +606,9 @@ const HorsesPage: React.FC<HorsesPageProps> = ({ horses, vaccinations, clinicLog
                 (h.name || '').toLowerCase().includes(filter) || 
                 (h.number || '').includes(filter) || 
                 (h.rasan || '').toLowerCase().includes(filter) || 
-                (h.breed || '').toLowerCase().includes(filter)
+                (h.breed || '').toLowerCase().includes(filter) ||
+                (h.fatherName || '').toLowerCase().includes(filter) ||
+                (h.motherName || '').toLowerCase().includes(filter)
             );
         }
     }

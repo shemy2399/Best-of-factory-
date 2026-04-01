@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { collection, onSnapshot, addDoc, doc, updateDoc, deleteDoc, query, orderBy, deleteField, getDocs, where, limit, serverTimestamp } from 'firebase/firestore';
 import { db } from './services/firebase'; 
@@ -20,6 +19,7 @@ import BreedingPage from './pages/Breeding';
 import NursingPage from './pages/Nursing';
 import AdminManagement from './pages/AdminManagement';
 import { KeyIcon } from './components/icons';
+
 
 // --- Modals Components ---
 
@@ -67,13 +67,63 @@ const AdminSecurityModal: React.FC<{ onClose: () => void; onSuccess: () => void;
     );
 };
 
+// --- Error Boundary Component ---
+class ErrorBoundary extends React.Component<any, any> {
+  state = { hasError: false, error: null };
+
+  static getDerivedStateFromError(error: any) {
+    return { hasError: true, error };
+  }
+
+  componentDidCatch(error: any, errorInfo: any) {
+    console.error("ErrorBoundary caught an error", error, errorInfo);
+  }
+
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div className="h-screen bg-gray-900 text-white p-10 flex flex-col items-center justify-center text-center">
+          <h1 className="text-2xl font-bold mb-4">⚠️ عذراً، حدث خطأ غير متوقع</h1>
+          <p className="text-gray-400 mb-6">يرجى محاولة إعادة تحميل الصفحة</p>
+          <button 
+            onClick={() => window.location.reload()}
+            className="px-6 py-2 bg-amber-600 text-white font-bold rounded-xl"
+          >
+            إعادة تحميل
+          </button>
+        </div>
+      );
+    }
+    return (this as any).props.children;
+  }
+}
+
 // --- Main App Component ---
 
 const App: React.FC = () => {
-  const [isAuthenticated, setIsAuthenticated] = useState(sessionStorage.getItem('isAuthenticated') === 'true');
+  return (
+    <ErrorBoundary>
+      <AppContent />
+    </ErrorBoundary>
+  );
+};
+
+const AppContent: React.FC = () => {
+  const [isAuthenticated, setIsAuthenticated] = useState(() => {
+      try {
+          return sessionStorage.getItem('isAuthenticated') === 'true';
+      } catch (e) {
+          console.error("sessionStorage error:", e);
+          return false;
+      }
+  });
   const [currentUser, setCurrentUser] = useState<AdminUser | null>(() => {
-      const stored = sessionStorage.getItem('currentUserData');
-      return stored ? JSON.parse(stored) : null;
+      try {
+          const stored = sessionStorage.getItem('currentUserData');
+          return stored ? JSON.parse(stored) : null;
+      } catch (e) {
+          return null;
+      }
   });
   
   const [admins, setAdmins] = useState<AdminUser[]>([]);
@@ -83,10 +133,14 @@ const App: React.FC = () => {
   const [activePage, setActivePage] = useState<Page>('dashboard');
   
   const [globalBattalionFilter, setGlobalBattalionFilter] = useState<Horse['battalion'] | 'الكل'>(() => {
-      const stored = sessionStorage.getItem('currentUserData');
-      if (stored) {
-          const user = JSON.parse(stored) as AdminUser;
-          if (user.assignedBattalion && user.assignedBattalion !== 'الكل') return user.assignedBattalion;
+      try {
+          const stored = sessionStorage.getItem('currentUserData');
+          if (stored) {
+              const user = JSON.parse(stored) as AdminUser;
+              if (user.assignedBattalion && user.assignedBattalion !== 'الكل') return user.assignedBattalion;
+          }
+      } catch (e) {
+          return 'الكل';
       }
       return 'الكل';
   });
@@ -121,15 +175,18 @@ const App: React.FC = () => {
   const [isInitialLoading, setIsInitialLoading] = useState(true);
 
   useEffect(() => {
+    // Safety timeout: Force show login after 2 seconds if Firebase is slow
+    const timer = setTimeout(() => {
+        if (isInitialLoading) {
+            setIsInitialLoading(false);
+        }
+    }, 2000);
+
     const unsubAdmins = onSnapshot(query(collection(db, "admins"), orderBy("createdAt", "asc")), (s) => {
         const adminsData = s.docs.map(d => ({id: d.id, ...d.data()}) as AdminUser);
         setAdmins(adminsData);
         setIsInitialLoading(false);
-        
-        // If no admins exist, we might want to create a default one or just let the user know
-        if (s.empty && !isAuthenticated) {
-            console.log("No admins found in database.");
-        }
+        clearTimeout(timer);
     }, (error) => {
         console.error("Firebase Admins Error:", error);
         setIsInitialLoading(false);
