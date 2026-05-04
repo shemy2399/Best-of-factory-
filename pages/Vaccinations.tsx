@@ -21,11 +21,15 @@ const AddVaccinationModal: React.FC<{
     const [selectedHorses, setSelectedHorses] = useState<Horse[]>([]);
     const [horseSearch, setHorseSearch] = useState('');
     const [showHorseList, setShowHorseList] = useState(false);
+    const [isSubmitting, setIsSubmitting] = useState(false);
     
     const [type, setType] = useState<Vaccination['type']>('vaccination');
     const [productName, setProductName] = useState('');
     const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
-    const [nextDuePeriod, setNextDuePeriod] = useState('0'); // '0' means no due date
+    const [hasScheduledNext, setHasScheduledNext] = useState(false);
+    const [nextDuePeriod, setNextDuePeriod] = useState('6'); 
+    const [useManualNextDate, setUseManualNextDate] = useState(false);
+    const [manualNextDate, setManualNextDate] = useState('');
 
     const availableHorsesToSelect = useMemo(() => {
         const selectedIds = new Set(selectedHorses.map(h => h.id));
@@ -43,52 +47,100 @@ const AddVaccinationModal: React.FC<{
     const handleSelectHorse = (horse: Horse) => {
         setSelectedHorses(prev => [...prev, horse]);
         setHorseSearch('');
+        setShowHorseList(false);
+    };
+
+    const handleSelectAll = () => {
+        setSelectedHorses([...horses]);
+        setHorseSearch('');
+        setShowHorseList(false);
     };
     
     const handleRemoveHorse = (horseId: string) => {
         setSelectedHorses(prev => prev.filter(h => h.id !== horseId));
     };
 
-    const handleSubmit = (e: React.FormEvent) => {
+    const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         if (selectedHorses.length === 0) {
             alert('يرجى اختيار حصان واحد على الأقل.');
             return;
         }
 
-        const nextDueMonths = parseInt(nextDuePeriod, 10);
-        let nextDueDate: string | undefined = undefined;
-    
-        if (nextDueMonths > 0) {
-            const startDate = new Date(date);
-            startDate.setUTCHours(12); // Avoid timezone issues
-            startDate.setMonth(startDate.getMonth() + nextDueMonths);
-            nextDueDate = startDate.toISOString().split('T')[0];
-        }
+        setIsSubmitting(true);
 
-        selectedHorses.forEach(horse => {
-             onAdd({ horseId: horse.id, horseName: horse.name, type, productName, date, nextDueDate });
-        });
-       
-        onClose();
+        try {
+            let nextDueDate: string | undefined = undefined;
+        
+            if (hasScheduledNext) {
+                if (useManualNextDate && manualNextDate) {
+                    nextDueDate = manualNextDate;
+                } else {
+                    const nextDueMonths = parseInt(nextDuePeriod, 10);
+                    if (nextDueMonths > 0) {
+                        const startDate = new Date(date);
+                        startDate.setUTCHours(12);
+                        startDate.setMonth(startDate.getMonth() + nextDueMonths);
+                        nextDueDate = startDate.toISOString().split('T')[0];
+                    }
+                }
+            }
+
+            // Add records one by one to ensure consistency and better error handling
+            for (const horse of selectedHorses) {
+                if (!horse.id || !horse.name) continue;
+                
+                const data: any = { 
+                    horseId: horse.id, 
+                    horseName: horse.name, 
+                    type, 
+                    productName: productName.trim(), 
+                    date 
+                };
+                
+                if (nextDueDate) {
+                    data.nextDueDate = nextDueDate;
+                }
+                
+                await onAdd(data);
+            }
+            
+            onClose();
+        } catch (error) {
+            console.error("Error adding records:", error);
+            alert("حدث خطأ أثناء حفظ السجلات. يرجى المحاولة مرة أخرى.");
+        } finally {
+            setIsSubmitting(false);
+        }
     };
 
     return (
-        <div className="fixed inset-0 bg-black bg-opacity-75 flex justify-center items-center z-50">
-            <div className="bg-gray-800 rounded-xl shadow-2xl p-8 w-full max-w-2xl border border-gray-700 max-h-[90vh] overflow-y-auto">
+        <div className="fixed inset-0 bg-black bg-opacity-75 flex justify-center items-center z-50 p-4">
+            <div className="bg-gray-800 rounded-xl shadow-2xl p-6 md:p-8 w-full max-w-2xl border border-gray-700 max-h-[90vh] overflow-y-auto custom-scrollbar">
                 <div className="flex justify-between items-center mb-6">
                     <h2 className="text-2xl font-bold text-white">تسجيل جديد</h2>
                     <button onClick={onClose} className="text-gray-400 hover:text-gray-200"><XMarkIcon className="w-6 h-6" /></button>
                 </div>
-                <form onSubmit={handleSubmit} className="space-y-4">
+                <form onSubmit={handleSubmit} className="space-y-6">
                      <div>
-                        <label className="block mb-2 font-medium text-gray-300">اختر الخيول</label>
-                        <div className="flex flex-wrap gap-2 p-2 bg-gray-900/50 rounded-lg min-h-[48px] border border-gray-700">
-                            {selectedHorses.length === 0 && <span className="text-gray-500 px-2 py-1">لم يتم تحديد أي خيول</span>}
+                        <div className="flex justify-between items-center mb-2">
+                             <label className="font-bold text-gray-300">اختر الخيول</label>
+                             {horses.length > 0 && selectedHorses.length < horses.length && (
+                                 <button 
+                                    type="button" 
+                                    onClick={handleSelectAll}
+                                    className="text-xs bg-gray-700 hover:bg-gray-600 text-amber-400 px-2 py-1 rounded border border-gray-600 transition-colors"
+                                 >
+                                     إضافة جميع خيول الكتيبة ({horses.length})
+                                 </button>
+                             )}
+                        </div>
+                        <div className="flex flex-wrap gap-2 p-3 bg-gray-900/50 rounded-xl min-h-[56px] border border-gray-700 shadow-inner">
+                            {selectedHorses.length === 0 && <span className="text-gray-500 px-2 py-1 italic">لم يتم تحديد أي خيول</span>}
                             {selectedHorses.map(horse => (
-                                <div key={horse.id} className="flex items-center gap-2 bg-amber-500/20 text-amber-200 text-sm font-medium px-3 py-1 rounded-full animate-fade-in">
+                                <div key={horse.id} className="flex items-center gap-2 bg-amber-500/20 text-amber-200 text-sm font-medium px-3 py-1 rounded-full animate-fade-in border border-amber-500/30">
                                     <span>{horse.name} ({horse.number})</span>
-                                    <button type="button" onClick={() => handleRemoveHorse(horse.id)} className="text-amber-400 hover:text-white rounded-full hover:bg-black/20">
+                                    <button type="button" onClick={() => handleRemoveHorse(horse.id)} className="text-amber-400 hover:text-white rounded-full hover:bg-black/20 transition-colors">
                                         <XMarkIcon className="w-4 h-4" />
                                     </button>
                                 </div>
@@ -102,56 +154,103 @@ const AddVaccinationModal: React.FC<{
                              onFocus={() => setShowHorseList(true)}
                              onBlur={() => setTimeout(() => setShowHorseList(false), 200)}
                              placeholder="ابحث بالاسم أو الرقم لإضافة حصان..."
-                             className="w-full p-3 bg-gray-700 border border-gray-600 rounded-lg text-gray-200 focus:ring-amber-500 focus:border-amber-500"
+                             className="w-full p-3 bg-gray-700 border border-gray-600 rounded-lg text-gray-200 focus:ring-2 focus:ring-amber-500/50 focus:border-amber-500 outline-none transition-all"
                            />
                            {showHorseList && availableHorsesToSelect.length > 0 && (
-                                <ul className="absolute z-20 w-full bg-gray-900 border border-gray-600 rounded-lg mt-1 max-h-60 overflow-y-auto shadow-lg">
+                                <ul className="absolute z-20 w-full bg-gray-900 border border-gray-600 rounded-lg mt-1 max-h-60 overflow-y-auto shadow-2xl animate-fade-in custom-scrollbar">
                                     {availableHorsesToSelect.map(h => (
                                         <li 
                                             key={h.id} 
                                             onMouseDown={() => handleSelectHorse(h)}
-                                            className="p-3 hover:bg-amber-500/20 cursor-pointer text-gray-200"
+                                            className="p-3 hover:bg-amber-500/20 cursor-pointer text-gray-200 border-b border-gray-800 last:border-0"
                                         >
-                                            {h.name} ({h.number})
+                                            {h.name} <span className="text-gray-400 text-sm">({h.number})</span>
                                         </li>
                                     ))}
                                 </ul>
                            )}
                         </div>
                     </div>
-                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div>
                            <label className="block mb-2 font-medium text-gray-300">النوع</label>
-                           <select value={type} onChange={e => setType(e.target.value as Vaccination['type'])} className="w-full p-3 bg-gray-700 border border-gray-600 rounded-lg text-gray-200">
-                               <option value="vaccination">تحصين</option>
-                               <option value="deworming">تجريع</option>
-                           </select>
+                           <div className="flex gap-2">
+                               {['vaccination', 'deworming'].map((opt) => (
+                                   <button
+                                       key={opt}
+                                       type="button"
+                                       onClick={() => setType(opt as any)}
+                                       className={`flex-1 p-3 rounded-lg font-bold border transition-all ${type === opt ? 'bg-amber-500 border-amber-500 text-white shadow-lg shadow-amber-500/20' : 'bg-gray-700 border-gray-600 text-gray-400 hover:border-gray-500'}`}
+                                   >
+                                       {opt === 'vaccination' ? 'تحصين' : 'تجريع'}
+                                   </button>
+                               ))}
+                           </div>
                         </div>
-                        <input name="productName" value={productName} onChange={(e) => setProductName(e.target.value)} placeholder="اسم المنتج" className="w-full p-3 bg-gray-700 border border-gray-600 rounded-lg text-gray-200 self-end" required />
+                        <div className="self-end">
+                            <label className="block mb-2 font-medium text-gray-300">اسم المنتج</label>
+                            <input name="productName" value={productName} onChange={(e) => setProductName(e.target.value)} placeholder="اسم المنتج المستخدم..." className="w-full p-3 bg-gray-700 border border-gray-600 rounded-lg text-gray-200 focus:ring-2 focus:ring-amber-500/50 outline-none" required />
+                        </div>
                     </div>
+
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       <div>
-                          <label className="block mb-2 font-medium text-gray-300">تاريخ الإجراء</label>
+                          <label className="block mb-2 font-medium text-gray-300">تاريخ الإجراء الحالي</label>
                           <DateInput value={date} onChange={setDate} required />
                       </div>
                        <div>
-                          <label className="block mb-2 font-medium text-gray-300">الموعد القادم (اختياري)</label>
+                          <label className="block mb-2 font-medium text-gray-300">الموعد القادم</label>
                           <select 
-                              value={nextDuePeriod} 
-                              onChange={(e) => setNextDuePeriod(e.target.value)} 
-                              className="w-full p-3 bg-gray-700 border border-gray-600 rounded-lg text-gray-200"
+                              value={!hasScheduledNext ? '0' : (useManualNextDate ? 'manual' : nextDuePeriod)} 
+                              onChange={(e) => {
+                                  const val = e.target.value;
+                                  if (val === 'manual') {
+                                      setUseManualNextDate(true);
+                                      setHasScheduledNext(true);
+                                  } else if (val === '0') {
+                                      setUseManualNextDate(false);
+                                      setHasScheduledNext(false);
+                                      setNextDuePeriod('0');
+                                  } else {
+                                      setUseManualNextDate(false);
+                                      setHasScheduledNext(true);
+                                      setNextDuePeriod(val);
+                                  }
+                              }} 
+                              className="w-full p-3 bg-gray-700 border border-gray-600 rounded-lg text-gray-200 focus:ring-2 focus:ring-amber-500/50 outline-none"
                           >
-                              <option value="0">لا يوجد</option>
+                              <option value="0">لا يوجد (بدون تذكير)</option>
                               {Array.from({ length: 36 }, (_, i) => i + 1).map(months => (
                                   <option key={months} value={months}>
-                                      بعد {months} {months === 1 ? 'شهر' : months === 2 ? 'شهرين' : (months >= 3 && months <= 10) ? 'أشهر' : 'شهرًا'}
+                                      تكرار بعد {months} {months === 1 ? 'شهر' : months === 2 ? 'شهرين' : (months >= 3 && months <= 10) ? 'أشهر' : 'شهرًا'}
                                   </option>
                               ))}
+                              <option value="manual">تحديد تاريخ مخصص...</option>
                           </select>
                       </div>
                     </div>
-                    <div className="flex justify-end pt-4">
-                        <button type="submit" className="px-6 py-2 bg-amber-500 text-white font-semibold rounded-lg hover:bg-amber-600">تسجيل</button>
+
+                    {hasScheduledNext && useManualNextDate && (
+                        <div className="p-4 bg-gray-900/40 rounded-xl border border-gray-700 animate-fade-in shadow-inner">
+                            <label className="block mb-2 text-sm font-medium text-gray-300">اختر التاريخ القادم المحدد</label>
+                            <DateInput value={manualNextDate} onChange={setManualNextDate} required={useManualNextDate} />
+                        </div>
+                    )}
+
+                    <div className="flex justify-end pt-4 border-t border-gray-700">
+                        <button 
+                            type="submit" 
+                            disabled={isSubmitting}
+                            className={`px-10 py-3 text-white font-bold rounded-xl shadow-lg shadow-amber-500/20 active:scale-95 transition-all text-lg flex items-center gap-2 ${isSubmitting ? 'bg-gray-600 cursor-not-allowed' : 'bg-amber-500 hover:bg-amber-600'}`}
+                        >
+                            {isSubmitting ? (
+                                <>
+                                    <div className="w-5 h-5 border-2 border-white/20 border-t-white rounded-full animate-spin" />
+                                    جاري الحفظ...
+                                </>
+                            ) : 'حفظ البيانات'}
+                        </button>
                     </div>
                 </form>
             </div>
@@ -176,18 +275,19 @@ const EditVaccinationModal: React.FC<{
       const yearDiff = end.getFullYear() - start.getFullYear();
       const monthDiff = end.getMonth() - start.getMonth();
       const totalMonths = yearDiff * 12 + monthDiff;
-      // Simple rounding for partial months
       const dayDiff = end.getDate() - start.getDate();
       if (dayDiff > 15) return totalMonths + 1;
       if (dayDiff < -15) return totalMonths -1;
       return totalMonths;
     };
 
-    const initialPeriod = vaccination.nextDueDate ? calculateMonthDiff(vaccination.date, vaccination.nextDueDate) : 0;
+    const initialPeriod = vaccination.nextDueDate ? calculateMonthDiff(vaccination.date, vaccination.nextDueDate) : 6;
 
     const [formData, setFormData] = useState(vaccination);
-    const [nextDuePeriod, setNextDuePeriod] = useState(String(initialPeriod > 0 ? initialPeriod : 0));
-
+    const [hasScheduledNext, setHasScheduledNext] = useState(!!vaccination.nextDueDate);
+    const [nextDuePeriod, setNextDuePeriod] = useState(String(initialPeriod));
+    const [useManualNextDate, setUseManualNextDate] = useState(false);
+    const [manualNextDate, setManualNextDate] = useState(vaccination.nextDueDate || '');
 
     const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
         const { name, value } = e.target;
@@ -197,19 +297,25 @@ const EditVaccinationModal: React.FC<{
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
         
-        const nextDueMonths = parseInt(nextDuePeriod, 10);
         let nextDueDate: string | undefined = undefined;
 
-        if (nextDueMonths > 0) {
-            const startDate = new Date(formData.date);
-            startDate.setUTCHours(12);
-            startDate.setMonth(startDate.getMonth() + nextDueMonths);
-            nextDueDate = startDate.toISOString().split('T')[0];
+        if (hasScheduledNext) {
+            if (useManualNextDate && manualNextDate) {
+                nextDueDate = manualNextDate;
+            } else {
+                const nextDueMonths = parseInt(nextDuePeriod, 10);
+                if (nextDueMonths > 0) {
+                    const startDate = new Date(formData.date);
+                    startDate.setUTCHours(12);
+                    startDate.setMonth(startDate.getMonth() + nextDueMonths);
+                    nextDueDate = startDate.toISOString().split('T')[0];
+                }
+            }
         }
 
         const finalData = { ...formData, nextDueDate };
         if (!finalData.nextDueDate) {
-          delete (finalData as Partial<typeof finalData>).nextDueDate;
+          delete (finalData as any).nextDueDate;
         }
 
         onEdit(finalData);
@@ -217,53 +323,85 @@ const EditVaccinationModal: React.FC<{
     };
 
     return (
-        <div className="fixed inset-0 bg-black bg-opacity-75 flex justify-center items-center z-50">
-            <div className="bg-gray-800 rounded-xl shadow-2xl p-8 w-full max-w-lg border border-gray-700">
+        <div className="fixed inset-0 bg-black bg-opacity-75 flex justify-center items-center z-50 p-4">
+            <div className="bg-gray-800 rounded-xl shadow-2xl p-6 md:p-8 w-full max-w-lg border border-gray-700 max-h-[90vh] overflow-y-auto custom-scrollbar">
                 <div className="flex justify-between items-center mb-6">
                     <h2 className="text-2xl font-bold text-white">تعديل سجل</h2>
                     <button onClick={onClose} className="text-gray-400 hover:text-gray-200"><XMarkIcon className="w-6 h-6" /></button>
                 </div>
-                <form onSubmit={handleSubmit} className="space-y-4">
+                <form onSubmit={handleSubmit} className="space-y-6">
                     <div className="mb-4">
                         <label className="block mb-2 font-medium text-gray-300">الحصان</label>
-                        <input value={horseDisplayName} className="w-full p-3 bg-gray-900 border border-gray-700 rounded-lg text-gray-400" readOnly />
+                        <input value={horseDisplayName} className="w-full p-3 bg-gray-900 border border-gray-700 rounded-lg text-gray-400 font-bold" readOnly />
                     </div>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div>
                            <label className="block mb-2 font-medium text-gray-300">النوع</label>
-                           <select name="type" value={formData.type} onChange={handleChange} className="w-full p-3 bg-gray-700 border border-gray-600 rounded-lg text-gray-200">
-                               <option value="vaccination">تحصين</option>
-                               <option value="deworming">تجريع</option>
-                           </select>
+                           <div className="flex gap-2">
+                               {['vaccination', 'deworming'].map((opt) => (
+                                   <button
+                                       key={opt}
+                                       type="button"
+                                       onClick={() => setFormData(prev => ({ ...prev, type: opt as any }))}
+                                       className={`flex-1 p-3 rounded-lg font-bold border transition-all ${formData.type === opt ? 'bg-amber-500 border-amber-500 text-white shadow-lg shadow-amber-500/20' : 'bg-gray-700 border-gray-600 text-gray-400 hover:border-gray-500'}`}
+                                   >
+                                       {opt === 'vaccination' ? 'تحصين' : 'تجريع'}
+                                   </button>
+                               ))}
+                           </div>
                         </div>
                         <div className="self-end">
                             <label className="block mb-2 font-medium text-gray-300">اسم المنتج</label>
-                            <input name="productName" value={formData.productName} onChange={handleChange} className="w-full p-3 bg-gray-700 border border-gray-600 rounded-lg text-gray-200" required />
+                            <input name="productName" value={formData.productName} onChange={handleChange} className="w-full p-3 bg-gray-700 border border-gray-600 rounded-lg text-gray-200 focus:ring-2 focus:ring-amber-500/50 outline-none" required />
                         </div>
                     </div>
-                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div>
                           <label className="block mb-2 font-medium text-gray-300">تاريخ الإجراء</label>
                           <DateInput value={formData.date} onChange={value => handleChange({target: {name: 'date', value}} as any)} required />
                         </div>
-                         <div>
+                        <div>
                           <label className="block mb-2 font-medium text-gray-300">الموعد القادم</label>
                           <select 
-                              value={nextDuePeriod} 
-                              onChange={(e) => setNextDuePeriod(e.target.value)} 
-                              className="w-full p-3 bg-gray-700 border border-gray-600 rounded-lg text-gray-200"
+                              value={!hasScheduledNext ? '0' : (useManualNextDate ? 'manual' : nextDuePeriod)} 
+                              onChange={(e) => {
+                                  const val = e.target.value;
+                                  if (val === 'manual') {
+                                      setUseManualNextDate(true);
+                                      setHasScheduledNext(true);
+                                  } else if (val === '0') {
+                                      setUseManualNextDate(false);
+                                      setHasScheduledNext(false);
+                                      setNextDuePeriod('0');
+                                  } else {
+                                      setUseManualNextDate(false);
+                                      setHasScheduledNext(true);
+                                      setNextDuePeriod(val);
+                                  }
+                              }} 
+                              className="w-full p-3 bg-gray-700 border border-gray-600 rounded-lg text-gray-200 focus:ring-2 focus:ring-amber-500/50 outline-none"
                           >
-                              <option value="0">لا يوجد</option>
+                              <option value="0">لا يوجد (بدون تذكير)</option>
                               {Array.from({ length: 36 }, (_, i) => i + 1).map(months => (
                                   <option key={months} value={months}>
-                                      بعد {months} {months === 1 ? 'شهر' : months === 2 ? 'شهرين' : (months >= 3 && months <= 10) ? 'أشهر' : 'شهرًا'}
+                                      تكرار بعد {months} {months === 1 ? 'شهر' : months === 2 ? 'شهرين' : (months >= 3 && months <= 10) ? 'أشهر' : 'شهرًا'}
                                   </option>
                               ))}
+                              <option value="manual">تحديد تاريخ مخصص...</option>
                           </select>
                         </div>
                     </div>
-                    <div className="flex justify-end pt-4">
-                        <button type="submit" className="px-6 py-2 bg-amber-500 text-white font-semibold rounded-lg hover:bg-amber-600">حفظ التعديلات</button>
+
+                    {hasScheduledNext && useManualNextDate && (
+                         <div className="p-4 bg-gray-900/40 rounded-xl border border-gray-700 animate-fade-in shadow-inner">
+                            <label className="block mb-2 text-sm font-medium text-gray-300">تعديل التاريخ القادم المحدد</label>
+                            <DateInput value={manualNextDate} onChange={setManualNextDate} required={useManualNextDate} />
+                         </div>
+                    )}
+
+                    <div className="flex justify-end pt-4 border-t border-gray-700">
+                        <button type="submit" className="px-10 py-3 bg-amber-500 text-white font-bold rounded-xl hover:bg-amber-600 shadow-lg shadow-amber-500/20 active:scale-95 transition-all">حفظ التعديلات</button>
                     </div>
                 </form>
             </div>
@@ -324,12 +462,17 @@ const VaccinationsPage: React.FC<VaccinationsPageProps> = ({ horses, vaccination
             }));
     }, [vaccinationsForSelectedBattalion]);
 
-    // Expand the first group by default when data loads
+    // Expand groups automatically
     React.useEffect(() => {
-        if (groupedVaccinations.length > 0 && Object.keys(expandedDates).length === 0) {
-            setExpandedDates({ [groupedVaccinations[0].date]: true });
+        if (groupedVaccinations.length > 0) {
+            // Expand the very first (newest) group by default if nothing is expanded
+            // OR if a new group was just added (we can check if the newest group is not in expandedDates)
+            const newestDate = groupedVaccinations[0].date;
+            if (Object.keys(expandedDates).length === 0 || !expandedDates.hasOwnProperty(newestDate)) {
+                setExpandedDates(prev => ({ ...prev, [newestDate]: true }));
+            }
         }
-    }, [groupedVaccinations]);
+    }, [groupedVaccinations.length]); // Specifically watch the number of groups to catch new additions
 
     const toggleDate = (date: string) => {
         setExpandedDates(prev => ({ ...prev, [date]: !prev[date] }));

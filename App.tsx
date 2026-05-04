@@ -424,7 +424,27 @@ const AppContent: React.FC = () => {
               case 'pharmacy': 
                 return <PharmacyPage medications={medications} onAddMedication={async (m) => addDoc(collection(db, "medications"), {...m, createdAt: new Date().toISOString()})} onEditMedication={async (m) => { const {id, ...data} = m; updateDoc(doc(db, "medications", id), data); }} onDeleteMedication={async (id) => deleteDoc(doc(db, "medications", id))} globalBattalionFilter={globalBattalionFilter} setGlobalBattalionFilter={setGlobalBattalionFilter} />;
               case 'vaccinations': 
-                return <VaccinationsPage horses={horses} vaccinations={vaccinations} onAddVaccination={async (v) => addDoc(collection(db, "vaccinations"), {...v, createdAt: new Date().toISOString()})} onEditVaccination={async (v) => { const {id, ...data} = v; updateDoc(doc(db, "vaccinations", id), data); }} onDeleteVaccination={async (id) => deleteDoc(doc(db, "vaccinations", id))} globalBattalionFilter={globalBattalionFilter} setGlobalBattalionFilter={setGlobalBattalionFilter} />;
+                return <VaccinationsPage 
+                    horses={horses} 
+                    vaccinations={vaccinations} 
+                    onAddVaccination={async (v) => {
+                        const data: any = { ...v, createdAt: new Date().toISOString() };
+                        // Ensure undefined fields don't break Firestore addDoc
+                        Object.keys(data).forEach(key => data[key] === undefined && delete data[key]);
+                        const docRef = await addDoc(collection(db, "vaccinations"), data);
+                        handleCreateNotification(`تسجيل ${v.type === 'vaccination' ? 'تحصين' : 'تجريع'} لـ ${v.horseName}`, 'vaccination');
+                        return docRef;
+                    }} 
+                    onEditVaccination={async (v) => { 
+                        const {id, ...data} = v; 
+                        const updateData: any = { ...data, updatedAt: serverTimestamp() };
+                        if (!updateData.nextDueDate) updateData.nextDueDate = deleteField();
+                        await updateDoc(doc(db, "vaccinations", id), updateData); 
+                    }} 
+                    onDeleteVaccination={async (id) => deleteDoc(doc(db, "vaccinations", id))} 
+                    globalBattalionFilter={globalBattalionFilter} 
+                    setGlobalBattalionFilter={setGlobalBattalionFilter} 
+                />;
               case 'feeding': 
                 return <FeedingPage feedingSchedules={feedingSchedules} onAddFeedingSchedule={async (s) => addDoc(collection(db, "feedingSchedules"), s)} onEditFeedingSchedule={async (s) => { const {id, ...data} = s; updateDoc(doc(db, "feedingSchedules", id), data); }} onDeleteFeedingSchedule={async (id) => deleteDoc(doc(db, "feedingSchedules", id))} globalBattalionFilter={globalBattalionFilter} setGlobalBattalionFilter={setGlobalBattalionFilter} />;
               case 'reminders': 
