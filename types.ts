@@ -1,7 +1,7 @@
 
 // types.ts
 
-export type Page = 'dashboard' | 'horses' | 'clinic' | 'vaccinations' | 'pharmacy' | 'feeding' | 'reports' | 'reminders' | 'protocols' | 'breeding' | 'nursing' | 'admins';
+export type Page = 'dashboard' | 'horses' | 'clinic' | 'vaccinations' | 'pharmacy' | 'feeding' | 'reports' | 'reminders' | 'protocols' | 'breeding' | 'nursing' | 'breedingReminders' | 'admins';
 
 export interface ProtectedPageAccess {
   pageId: Page;
@@ -81,6 +81,7 @@ export interface Horse {
     expectedWeaningDate: string;
     notes?: string;
   };
+  isMated?: boolean;
 }
 
 export interface FeedingScheduleEntry {

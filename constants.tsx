@@ -78,6 +78,11 @@ export const NAV_STRUCTURE: (NavItem | NavItemGroup)[] = [
         label: 'الأفراس المرضعة',
         icon: <NursingIcon />,
       },
+      {
+        id: 'breedingReminders',
+        label: 'التشبيه',
+        icon: <BreedingIcon />,
+      },
     ]
   },
   {

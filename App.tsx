@@ -17,6 +17,7 @@ import VaccinationsPage from './pages/Vaccinations';
 import LoginPage from './pages/LoginPage';
 import BreedingPage from './pages/Breeding';
 import NursingPage from './pages/Nursing';
+import BreedingReminders from './pages/BreedingReminders';
 import AdminManagement from './pages/AdminManagement';
 import { KeyIcon } from './components/icons';
 
@@ -367,6 +368,23 @@ const AppContent: React.FC = () => {
 
   const activePageLabel = useMemo(() => NAV_ITEMS.find(item => item.id === activePage)?.label || 'لوحة التحكم', [activePage]);
 
+  const breedingRemindersCount = useMemo(() => {
+    const today = new Date();
+    return horses.filter(h => {
+        if (!h.dateOfBirth) return false;
+        // Battalion filter check (following same logic as globalBattalionFilter in pages)
+        if (globalBattalionFilter !== 'الكل' && h.battalion !== globalBattalionFilter) return false;
+        
+        const birth = new Date(h.dateOfBirth);
+        let years = today.getFullYear() - birth.getFullYear();
+        const monthDiff = today.getMonth() - birth.getMonth();
+        if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birth.getDate())) {
+            years--;
+        }
+        return years >= 3 && !h.isMated;
+    }).length;
+  }, [horses, globalBattalionFilter]);
+
   if (isInitialLoading && !isAuthenticated) return <div className="h-screen bg-gray-900 flex items-center justify-center text-white font-black animate-pulse">جاري التحميل...</div>;
   if (!isAuthenticated) return <LoginPage onLoginSuccess={handleLoginSuccess} admins={admins} />;
 
@@ -374,6 +392,7 @@ const AppContent: React.FC = () => {
     <div className="flex h-screen bg-gray-900" dir="rtl">
       <Sidebar 
         activePage={activePage} setActivePage={handleNavigate} onLogout={() => { setIsAuthenticated(false); sessionStorage.clear(); setCurrentUser(null); }} isOpen={isSidebarOpen} setIsOpen={setIsSidebarOpen} isFullScreen={isFullScreen} toggleFullScreen={toggleFullScreen} globalBattalionFilter={globalBattalionFilter} setGlobalBattalionFilter={setGlobalBattalionFilter} currentUser={currentUser}
+        breedingRemindersCount={breedingRemindersCount}
       />
       <div className="flex flex-col flex-1 overflow-hidden">
         <TopBar 
@@ -457,6 +476,14 @@ const AppContent: React.FC = () => {
                 return <BreedingPage horses={horses} onRecordBirth={async (id) => updateDoc(doc(db, "horses", id), { pregnancy: deleteField() })} globalBattalionFilter={globalBattalionFilter} />;
               case 'nursing': 
                 return <NursingPage horses={horses} onRecordWeaning={async (id) => updateDoc(doc(db, "horses", id), { lactation: deleteField() })} globalBattalionFilter={globalBattalionFilter} />;
+              case 'breedingReminders':
+                return <BreedingReminders 
+                    horses={horses} 
+                    globalBattalionFilter={globalBattalionFilter} 
+                    onToggleMated={async (id, isMated) => {
+                        await updateDoc(doc(db, "horses", id), { isMated });
+                    }}
+                />;
               case 'admins': 
                 return <AdminManagement 
                     admins={admins} 

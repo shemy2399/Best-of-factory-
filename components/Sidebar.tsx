@@ -15,9 +15,10 @@ interface SidebarProps {
   globalBattalionFilter: Horse['battalion'] | 'الكل';
   setGlobalBattalionFilter: (battalion: Horse['battalion'] | 'الكل') => void;
   currentUser: AdminUser | null;
+  breedingRemindersCount?: number;
 }
 
-const NavButton: React.FC<{ item: NavItem, isActive: boolean, onClick: () => void, isSubItem?: boolean, isLocked?: boolean }> = ({ item, isActive, onClick, isSubItem = false, isLocked = false }) => (
+const NavButton: React.FC<{ item: NavItem, isActive: boolean, onClick: () => void, isSubItem?: boolean, isLocked?: boolean, badge?: number }> = ({ item, isActive, onClick, isSubItem = false, isLocked = false, badge }) => (
     <button
         onClick={onClick}
         className={`flex items-center justify-between w-full ${isSubItem ? 'py-2.5 px-3' : 'p-3'} my-1 rounded-lg transition-colors duration-200 ${
@@ -30,6 +31,11 @@ const NavButton: React.FC<{ item: NavItem, isActive: boolean, onClick: () => voi
             {/* FIX: Cast to ReactElement with SVGProps to allow className property */}
             {React.cloneElement(item.icon as React.ReactElement<React.SVGProps<SVGSVGElement>>, { className: "w-5 h-5" })}
             <span className={`mr-3 whitespace-nowrap ${isSubItem ? 'text-sm' : 'font-medium'}`}>{item.label}</span>
+            {badge && badge > 0 ? (
+                <span className="mr-2 px-1.5 py-0.5 text-[10px] font-black bg-red-600 text-white rounded-full min-w-[20px] text-center shadow-sm animate-pulse">
+                    {badge}
+                </span>
+            ) : null}
         </div>
         {isLocked && <KeyIcon className="w-3 h-3 text-red-400 opacity-70" />}
     </button>
@@ -55,7 +61,7 @@ const GroupButton: React.FC<{ item: NavItemGroup, isOpen: boolean, onClick: () =
 const Sidebar: React.FC<SidebarProps> = ({ 
     activePage, setActivePage, onLogout, isOpen, setIsOpen,
     isFullScreen, toggleFullScreen, globalBattalionFilter, setGlobalBattalionFilter,
-    currentUser
+    currentUser, breedingRemindersCount
 }) => {
   const [openGroups, setOpenGroups] = useState<Record<string, boolean>>({});
 
@@ -119,6 +125,7 @@ const Sidebar: React.FC<SidebarProps> = ({
                                                 onClick={() => setActivePage(item.id)} 
                                                 isSubItem={true}
                                                 isLocked={isPageLocked(item.id)}
+                                                badge={item.id === 'breedingReminders' ? breedingRemindersCount : undefined}
                                               />
                                           </li>
                                       ))}
