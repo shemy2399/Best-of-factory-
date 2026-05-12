@@ -555,12 +555,24 @@ const HorseFormModal = ({ horse, onClose, onSave }: { horse?: Horse; onClose: ()
 const HorsesPage: React.FC<HorsesPageProps> = ({ horses, vaccinations, clinicLog, onAddHorse, onEditHorse, onDeleteHorse, globalBattalionFilter, initialSearchTerm, currentUser }) => {
   const [displaySearch, setDisplaySearch] = useState(initialSearchTerm || '');
   const [debouncedSearch, setDebouncedSearch] = useState(initialSearchTerm || '');
+  const [yearFilter, setYearFilter] = useState<string>('الكل');
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [editingHorse, setEditingHorse] = useState<Horse | null>(null);
   const [viewingHorse, setViewingHorse] = useState<Horse | null>(null);
   const [deletingHorse, setDeletingHorse] = useState<Horse | null>(null);
   
   useEffect(() => { const handler = setTimeout(() => { setDebouncedSearch(displaySearch); }, 300); return () => clearTimeout(handler); }, [displaySearch]);
+
+  const availableYears = useMemo(() => {
+    const years = new Set<string>();
+    horses.forEach(h => {
+        if (h.dateOfBirth) {
+            const match = h.dateOfBirth.match(/\b\d{4}\b/);
+            if (match) years.add(match[0]);
+        }
+    });
+    return Array.from(years).sort((a, b) => b.localeCompare(a));
+  }, [horses]);
 
   const effectiveStatuses = useMemo(() => {
     const map: Record<string, 'healthy' | 'monitoring'> = {};
@@ -598,6 +610,15 @@ const HorsesPage: React.FC<HorsesPageProps> = ({ horses, vaccinations, clinicLog
     if (!horses) return [];
     const filter = debouncedSearch.toLowerCase().trim();
     let list = globalBattalionFilter === 'الكل' ? horses : horses.filter(h => h.battalion === globalBattalionFilter);
+    
+    if (yearFilter !== 'الكل') {
+        list = list.filter(h => {
+            if (!h.dateOfBirth) return false;
+            // Check for YYYY-MM-DD or DD/MM/YYYY or just YYYY
+            return h.dateOfBirth.includes(yearFilter);
+        });
+    }
+
     if (filter) {
         if (filter === '(غير محدد)') {
             list = list.filter(h => !h.rasan || h.rasan.trim() === '');
@@ -613,7 +634,7 @@ const HorsesPage: React.FC<HorsesPageProps> = ({ horses, vaccinations, clinicLog
         }
     }
     return list;
-  }, [horses, globalBattalionFilter, debouncedSearch]);
+  }, [horses, globalBattalionFilter, debouncedSearch, yearFilter]);
 
   const handleEdit = useCallback((h: Horse) => setEditingHorse(h), []);
   const handleView = useCallback((h: Horse) => setViewingHorse(h), []);
@@ -635,7 +656,29 @@ const HorsesPage: React.FC<HorsesPageProps> = ({ horses, vaccinations, clinicLog
           <button onClick={() => setIsAddModalOpen(true)} className="bg-amber-500 text-white px-6 py-3 rounded-xl font-black shadow-lg shadow-amber-500/20 hover:bg-amber-600 transition-all flex items-center gap-2 active:scale-95"><PlusIcon className="w-5 h-5" />إضافة حصان جديد</button>
         )}
       </div>
-      <div className="relative group"><input type="text" placeholder="بحث شامل..." value={displaySearch} onChange={(e) => setDisplaySearch(e.target.value)} className="w-full p-5 bg-gray-800 border border-gray-700 rounded-2xl text-white placeholder-gray-500 focus:border-amber-500 outline-none transition-all shadow-lg text-lg font-bold" /></div>
+      <div className="flex flex-col md:flex-row gap-4">
+        <div className="relative group flex-1">
+          <input 
+            type="text" 
+            placeholder="بحث شامل (الاسم، الرقم، الرسن...)" 
+            value={displaySearch} 
+            onChange={(e) => setDisplaySearch(e.target.value)} 
+            className="w-full p-5 bg-gray-800 border border-gray-700 rounded-2xl text-white placeholder-gray-500 focus:border-amber-500 outline-none transition-all shadow-lg text-lg font-bold" 
+          />
+        </div>
+        <div className="w-full md:w-48">
+          <select 
+            value={yearFilter} 
+            onChange={(e) => setYearFilter(e.target.value)}
+            className="w-full p-5 bg-gray-800 border border-gray-700 rounded-2xl text-white font-bold focus:border-amber-500 outline-none transition-all shadow-lg appearance-none cursor-pointer"
+          >
+            <option value="الكل">سنة الميلاد (الكل)</option>
+            {availableYears.map(year => (
+              <option key={year} value={year}>{year}</option>
+            ))}
+          </select>
+        </div>
+      </div>
       <div className="bg-gray-800 rounded-[2rem] shadow-2xl overflow-hidden border border-gray-700">
         <div className="overflow-x-auto">
             <table className="min-w-full divide-y divide-gray-700 text-right">
