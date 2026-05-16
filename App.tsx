@@ -471,7 +471,7 @@ const AppContent: React.FC = () => {
               case 'protocols': 
                 return <ProtocolsPage protocols={protocols} onAddProtocol={async (p) => addDoc(collection(db, "protocols"), p)} onEditProtocol={async (p) => { const {id, ...data} = p; updateDoc(doc(db, "protocols", id), data); }} onDeleteProtocol={async (id) => deleteDoc(doc(db, "protocols", id))} />;
               case 'reports': 
-                return <ReportsPage clinicLog={clinicLog} horses={horses} medications={medications} globalBattalionFilter={globalBattalionFilter} monthlyArchives={monthlyArchives} onAddArchive={async (a) => { await addDoc(collection(db, "monthlyArchives"), a); }} onDeleteArchive={async (id) => deleteDoc(doc(db, "monthlyArchives", id))} onUpdateArchive={async (id, data) => updateDoc(doc(db, "monthlyArchives", id), data)} onNavigateWithFilter={(filter) => { setHorseSearchFilter(filter); handleNavigate('horses'); }} />;
+                return <ReportsPage clinicLog={clinicLog} horses={horses} medications={medications} globalBattalionFilter={globalBattalionFilter} monthlyArchives={monthlyArchives} onAddArchive={async (a) => { await addDoc(collection(db, "monthlyArchives"), a); }} onDeleteArchive={async (id) => deleteDoc(doc(db, "monthlyArchives", id))} onUpdateArchive={async (id, data) => updateDoc(doc(db, "monthlyArchives", id), data)} onNavigateWithFilter={(filter) => { setHorseSearchFilter(filter); handleNavigate('horses'); }} onNavigate={handleNavigate} />;
               case 'breeding': 
                 return <BreedingPage horses={horses} onRecordBirth={async (id) => updateDoc(doc(db, "horses", id), { pregnancy: deleteField() })} globalBattalionFilter={globalBattalionFilter} />;
               case 'nursing': 

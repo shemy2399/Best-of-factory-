@@ -1,6 +1,6 @@
 
 import React, { useMemo, useState } from 'react';
-import { Horse, Medication, MedicalRecordEntry, MonthlyArchive } from '../types';
+import { Horse, Medication, MedicalRecordEntry, MonthlyArchive, Page } from '../types';
 import { PrintIcon, TrashIcon, ReportsIcon } from '../components/icons';
 
 interface ReportsPageProps {
@@ -13,6 +13,7 @@ interface ReportsPageProps {
   onDeleteArchive: (id: string) => Promise<void>;
   onUpdateArchive: (id: string, updatedData: Partial<MonthlyArchive>) => Promise<void>;
   onNavigateWithFilter: (filter: string) => void;
+  onNavigate: (page: Page) => void;
 }
 
 const BATTALIONS: string[] = ['الكتيبة الاولى', 'الكتيبة الثانية', 'الكتيبة الثالثة', 'نادي الفروسية'];
@@ -53,7 +54,7 @@ const DonutChart: React.FC<{ data: { label: string, value: number, color: string
   );
 };
 
-const ReportsPage: React.FC<ReportsPageProps> = ({ clinicLog = [], horses = [], globalBattalionFilter, monthlyArchives = [], onAddArchive, onDeleteArchive, onNavigateWithFilter }) => {
+const ReportsPage: React.FC<ReportsPageProps> = ({ clinicLog = [], horses = [], globalBattalionFilter, monthlyArchives = [], onAddArchive, onDeleteArchive, onNavigateWithFilter, onNavigate }) => {
   const todayStr = new Date().toISOString().split('T')[0];
   const currentMonthYear = useMemo(() => new Date().toLocaleDateString('ar-EG', { month: 'long', year: 'numeric' }), []);
   
@@ -197,42 +198,117 @@ const ReportsPage: React.FC<ReportsPageProps> = ({ clinicLog = [], horses = [], 
       </div>
 
       <div className="bg-gray-800 print:bg-white rounded-[2rem] shadow-2xl border border-gray-700 print:border-black overflow-hidden mt-8">
-          <div className="p-6 border-b border-gray-700 print:border-black bg-gray-900/30 print:bg-gray-100"><h2 className="text-lg font-black print:text-black flex items-center gap-3 uppercase tracking-tighter"><span className="w-2 h-6 bg-indigo-500 rounded-full"></span>تدقيق الموقف الطبي لكل كتيبة</h2></div>
+          <div className="p-6 border-b border-gray-700 print:border-black bg-gray-900/30 print:bg-gray-100">
+            <h2 className="text-lg font-black print:text-black flex items-center gap-3 uppercase tracking-tighter">
+              <span className="w-2 h-6 bg-pink-500 rounded-full"></span>
+              إحصائيات الإنتاج والكتائب (الأفراس)
+            </h2>
+          </div>
           <div className="overflow-x-auto">
               <table className="min-w-full text-right">
                   <thead className="bg-gray-900/80 print:bg-gray-200 text-gray-400 print:text-black font-black uppercase tracking-widest text-[10px]">
                       <tr>
                           <th className="px-8 py-4">الوحدة</th>
-                          <th className="px-8 py-4 text-center text-green-500">سليم فعلياً</th>
-                          <th className="px-8 py-4 text-center text-amber-500">تحت المتابعة</th>
-                          <th className="px-8 py-4 text-center bg-gray-800 print:bg-gray-300 text-white print:text-black">إجمالي القوة</th>
+                          <th className="px-8 py-4 text-center text-blue-400">أفراس مرضعة</th>
+                          <th className="px-8 py-4 text-center text-amber-500">أفراس عشار</th>
+                          <th className="px-8 py-4 text-center bg-gray-800 print:bg-gray-300 text-white print:text-black">إجمالي الأفراس</th>
                       </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-700 print:divide-black text-sm font-bold">
                       {BATTALIONS.map(bat => {
-                          const bh = horses.filter(h => h.battalion === bat);
-                          const activeInClinic = clinicLog.filter(e => {
-                              const isHorseInBat = bh.some(h => h.id === e.horseId);
-                              if (!isHorseInBat) return false;
-                              const rDate = e.recoveryDate || e.date;
-                              return e.status === 'monitoring' || !(todayStr > rDate);
-                          });
-                          
-                          const uniqueActiveIds = new Set(activeInClinic.map(e => e.horseId));
-                          const monitoringCount = uniqueActiveIds.size;
-                          const healthyCount = bh.length - monitoringCount;
+                          const batHorses = horses.filter(h => h.battalion === bat);
+                          const mares = batHorses.filter(h => h.gender === 'انثى' || h.gender === 'مهرة انثى');
+                          const nursingCount = mares.filter(h => !!h.lactation).length;
+                          const pregnantCount = mares.filter(h => !!h.pregnancy).length;
 
                           return (
                             <tr key={bat} className="hover:bg-gray-700/30 transition-colors">
                                 <td className="px-8 py-4 text-white print:text-black">{bat}</td>
-                                <td className="px-8 py-4 text-center text-green-400 print:text-black">{healthyCount}</td>
-                                <td className="px-8 py-4 text-center text-amber-400 print:text-black">{monitoringCount}</td>
-                                <td className="px-8 py-4 text-center bg-gray-900/20 print:bg-gray-100 text-white print:text-black">{bh.length}</td>
+                                <td className="px-8 py-4 text-center text-blue-400 print:text-black">{nursingCount}</td>
+                                <td className="px-8 py-4 text-center text-amber-400 print:text-black">{pregnantCount}</td>
+                                <td className="px-8 py-4 text-center bg-gray-900/20 print:bg-gray-100 text-white print:text-black">{mares.length}</td>
                             </tr>
                           );
                       })}
                   </tbody>
               </table>
+          </div>
+      </div>
+
+      <div className="bg-gray-800 print:bg-white p-8 rounded-[2rem] shadow-2xl border border-gray-700 print:border-black mt-8">
+          <h2 className="text-xl font-black mb-8 flex items-center gap-3 print:text-black uppercase tracking-tighter border-b border-gray-700 pb-4">
+            <span className="w-2 h-8 bg-red-500 rounded-full"></span>
+            تنبيهات وتذكيرات الإنتاج
+          </h2>
+          
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              {/* تذكيرات التشبيه */}
+              <button 
+                onClick={() => onNavigate('breedingReminders')}
+                className="text-right bg-gray-900/50 print:bg-gray-50 p-6 rounded-2xl border border-gray-700 hover:border-amber-500/50 hover:bg-gray-700/50 transition-all group"
+              >
+                  <p className="text-[10px] text-gray-500 print:text-black font-black mb-2 uppercase tracking-tighter transition-colors group-hover:text-amber-500">مستحق للتشبيه الفني</p>
+                  <div className="flex items-end justify-between">
+                      <span className="text-4xl font-black text-amber-500">
+                          {horses.filter(h => {
+                              if (globalBattalionFilter !== 'الكل' && h.battalion !== globalBattalionFilter) return false;
+                              if (h.isMated) return false;
+                              if (h.pregnancy) return false; // Already pregnant
+                              if (!h.dateOfBirth) return false;
+                              const birth = new Date(h.dateOfBirth);
+                              const today = new Date();
+                              let years = today.getFullYear() - birth.getFullYear();
+                              if (today.getMonth() < birth.getMonth() || (today.getMonth() === birth.getMonth() && today.getDate() < birth.getDate())) years--;
+                              return years >= 3;
+                          }).length}
+                      </span>
+                      <span className="text-gray-400 text-xs mb-1 group-hover:text-gray-200">حصان مؤهل</span>
+                  </div>
+              </button>
+
+              {/* متأخرة في الرضاعة */}
+              <button 
+                onClick={() => onNavigate('nursing')}
+                className="text-right bg-gray-900/50 print:bg-gray-50 p-6 rounded-2xl border border-gray-700 hover:border-blue-500/50 hover:bg-gray-700/50 transition-all group"
+              >
+                  <p className="text-[10px] text-gray-500 print:text-black font-black mb-2 uppercase tracking-tighter transition-colors group-hover:text-blue-400">تأخر في الفطام</p>
+                  <div className="flex items-end justify-between">
+                      <span className="text-4xl font-black text-blue-400">
+                          {horses.filter(h => {
+                              if (globalBattalionFilter !== 'الكل' && h.battalion !== globalBattalionFilter) return false;
+                              if (!h.lactation?.expectedWeaningDate) return false;
+                              const weaningDate = new Date(h.lactation.expectedWeaningDate);
+                              const today = new Date();
+                              today.setHours(0,0,0,0);
+                              weaningDate.setHours(0,0,0,0);
+                              return weaningDate.getTime() < today.getTime();
+                          }).length}
+                      </span>
+                      <span className="text-gray-400 text-xs mb-1 group-hover:text-gray-200">حالة متأخرة</span>
+                  </div>
+              </button>
+
+              {/* متأخرة في الولادة */}
+              <button 
+                onClick={() => onNavigate('breeding')}
+                className="text-right bg-gray-900/50 print:bg-gray-50 p-6 rounded-2xl border border-gray-700 hover:border-red-500/50 hover:bg-gray-700/50 transition-all group"
+              >
+                  <p className="text-[10px] text-gray-500 print:text-black font-black mb-2 uppercase tracking-tighter transition-colors group-hover:text-red-500">تأخر في الولادة</p>
+                  <div className="flex items-end justify-between">
+                      <span className="text-4xl font-black text-red-500">
+                          {horses.filter(h => {
+                              if (globalBattalionFilter !== 'الكل' && h.battalion !== globalBattalionFilter) return false;
+                              if (!h.pregnancy?.expectedDueDate) return false;
+                              const dueDate = new Date(h.pregnancy.expectedDueDate);
+                              const today = new Date();
+                              today.setHours(0,0,0,0);
+                              dueDate.setHours(0,0,0,0);
+                              return dueDate.getTime() < today.getTime();
+                          }).length}
+                      </span>
+                      <span className="text-gray-400 text-xs mb-1 group-hover:text-gray-200">حالة متأخرة</span>
+                  </div>
+              </button>
           </div>
       </div>
     </div>
