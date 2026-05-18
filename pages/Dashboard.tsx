@@ -46,32 +46,38 @@ const Dashboard: React.FC<DashboardProps> = ({ horses, medications, clinicLog, g
 
   const healthStats = useMemo(() => {
     const today = new Date().toISOString().split('T')[0];
-    // Explicitly type the Set as Set<string> to avoid "unknown" type errors
     const horseIds = new Set<string>(filteredHorses.map(h => h.id));
     const activeMonitoringHorses = new Set<string>();
 
-    // Explicitly type id as string to avoid parameter of type 'unknown' errors
-    horseIds.forEach((id: string) => {
-        const horseEntries = clinicLog.filter(e => e.horseId === id).sort((a, b) => {
-            const dateComp = b.date.localeCompare(a.date);
-            if (dateComp !== 0) return dateComp;
-            const aTime = (a as any).createdAt?.seconds || (typeof (a as any).createdAt?.toMillis === 'function' ? (a as any).createdAt.toMillis() / 1000 : 0);
-            const bTime = (b as any).createdAt?.seconds || (typeof (b as any).createdAt?.toMillis === 'function' ? (b as any).createdAt.toMillis() / 1000 : 0);
-            return bTime - aTime;
-        });
+    // تحسين الأداء: تجميع سجلات العيادة حسب الحصان مرة واحدة فقط
+    const clinicByHorse: Record<string, typeof clinicLog> = {};
+    clinicLog.forEach(entry => {
+      if (horseIds.has(entry.horseId)) {
+        if (!clinicByHorse[entry.horseId]) clinicByHorse[entry.horseId] = [];
+        clinicByHorse[entry.horseId].push(entry);
+      }
+    });
 
-        if (horseEntries.length > 0) {
-            const latest = horseEntries[0];
-            if (latest.status === 'monitoring') {
-                activeMonitoringHorses.add(id);
-            } else if (latest.status === 'recovered') {
-                const rDate = latest.recoveryDate || latest.date;
-                // لا يزال تحت المتابعة إذا كان اليوم ليس بعد تاريخ الشفاء
-                if (!(today > rDate)) {
-                    activeMonitoringHorses.add(id);
-                }
-            }
+    // معالجة أحدث سجل لكل حصان من المجموعات المصنفة
+    Object.entries(clinicByHorse).forEach(([horseId, entries]) => {
+      // ترتيب السجلات لهذا الحصان فقط (الأحدث أولاً)
+      const sortedEntries = [...entries].sort((a, b) => {
+        const dateComp = b.date.localeCompare(a.date);
+        if (dateComp !== 0) return dateComp;
+        const aTime = (a as any).createdAt?.seconds || (typeof (a as any).createdAt?.toMillis === 'function' ? (a as any).createdAt.toMillis() / 1000 : 0);
+        const bTime = (b as any).createdAt?.seconds || (typeof (b as any).createdAt?.toMillis === 'function' ? (b as any).createdAt.toMillis() / 1000 : 0);
+        return bTime - aTime;
+      });
+
+      const latest = sortedEntries[0];
+      if (latest.status === 'monitoring') {
+        activeMonitoringHorses.add(horseId);
+      } else if (latest.status === 'recovered') {
+        const rDate = latest.recoveryDate || latest.date;
+        if (!(today > rDate)) {
+          activeMonitoringHorses.add(horseId);
         }
+      }
     });
 
     return { monitoring: activeMonitoringHorses.size };

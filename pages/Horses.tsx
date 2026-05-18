@@ -578,26 +578,34 @@ const HorsesPage: React.FC<HorsesPageProps> = ({ horses, vaccinations, clinicLog
     const map: Record<string, 'healthy' | 'monitoring'> = {};
     const today = new Date().toISOString().split('T')[0];
 
-    horses.forEach(horse => {
-        const horseEntries = clinicLog.filter(e => e.horseId === horse.id).sort((a, b) => {
-            const dateComp = b.date.localeCompare(a.date);
-            if (dateComp !== 0) return dateComp;
-            return (b as any).createdAt?.seconds - (a as any).createdAt?.seconds;
-        });
+    // تحسين الأداء: تجميع سجلات العيادة حسب الحصان مسبقاً
+    const clinicByHorse: Record<string, typeof clinicLog> = {};
+    clinicLog.forEach(e => {
+        if (!clinicByHorse[e.horseId]) clinicByHorse[e.horseId] = [];
+        clinicByHorse[e.horseId].push(e);
+    });
 
+    horses.forEach(horse => {
+        const horseEntries = clinicByHorse[horse.id] || [];
+        
         if (horseEntries.length === 0) {
             map[horse.id] = horse.status || 'healthy';
         } else {
-            const latest = horseEntries[0];
+            // ترتيب السجلات لهذا الحصان فقط
+            const sorted = [...horseEntries].sort((a, b) => {
+                const dateComp = b.date.localeCompare(a.date);
+                if (dateComp !== 0) return dateComp;
+                const aTime = (a as any).createdAt?.seconds || 0;
+                const bTime = (b as any).createdAt?.seconds || 0;
+                return bTime - aTime;
+            });
+
+            const latest = sorted[0];
             if (latest.status === 'monitoring') {
                 map[horse.id] = 'monitoring';
             } else if (latest.status === 'recovered') {
                 const rDate = latest.recoveryDate || latest.date;
-                if (today > rDate) {
-                    map[horse.id] = 'healthy';
-                } else {
-                    map[horse.id] = 'monitoring';
-                }
+                map[horse.id] = (today > rDate) ? 'healthy' : 'monitoring';
             } else {
                 map[horse.id] = 'healthy';
             }

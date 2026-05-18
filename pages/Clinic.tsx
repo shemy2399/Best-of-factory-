@@ -325,15 +325,21 @@ const ClinicPage: React.FC<ClinicPageProps> = ({ horses, clinicLog, protocols, o
             return false;
         });
 
-        // حساب تاريخ الدخول الأصلي لكل حالة معروضة (لأغراض العرض فقط)
+        // حساب تاريخ الدخول الأصلي لكل حالة معروضة بكفاءة
+        const horseHistories: Record<string, ClinicLogEntry[]> = {};
+        clinicLog.forEach(e => {
+            if (!horseHistories[e.horseId]) horseHistories[e.horseId] = [];
+            horseHistories[e.horseId].push(e);
+        });
+
         logForBattalion = logForBattalion.map(entry => {
-             const horseHistory = clinicLog
-                .filter(e => e.horseId === entry.horseId && e.date <= entry.date)
+            const history = (horseHistories[entry.horseId] || [])
+                .filter(e => e.date <= entry.date)
                 .sort((a, b) => a.date.localeCompare(b.date));
             
             let admissionDate = entry.date;
-            for (let i = horseHistory.length - 1; i >= 0; i--) {
-                const current = horseHistory[i];
+            for (let i = history.length - 1; i >= 0; i--) {
+                const current = history[i];
                 if (current.status === 'healthy') break;
                 if (current.status === 'monitoring' || current.status === 'recovered') {
                     admissionDate = current.date;
@@ -498,7 +504,48 @@ const ClinicPage: React.FC<ClinicPageProps> = ({ horses, clinicLog, protocols, o
         <button onClick={() => setViewType('yearly')} className={`px-6 py-2.5 rounded-xl font-black text-sm transition-all ${viewType === 'yearly' ? 'bg-amber-500 text-white shadow-lg' : 'text-gray-400 hover:text-white'}`}>الأرشيف السنوي</button>
       </div>
       <div className="bg-gray-800 p-6 rounded-[2rem] shadow-xl flex flex-wrap items-center gap-6 no-print border border-gray-700/50">
-        {viewType === 'daily' && (<div className="flex items-center gap-4 w-full sm:w-auto"><label className="font-bold text-gray-400 text-sm whitespace-nowrap">تاريخ التقرير:</label><div className="w-full sm:w-64"><DateInput value={selectedDate} onChange={setSelectedDate} inputClassName="p-3" /></div></div>)}
+        {viewType === 'daily' && (
+          <div className="flex items-center gap-4 w-full sm:w-auto">
+            <label className="font-bold text-gray-400 text-sm whitespace-nowrap">تاريخ التقرير:</label>
+            <div className="flex items-center gap-2 bg-gray-900 p-1.5 rounded-2xl border border-gray-700">
+              <button 
+                onClick={() => {
+                  const d = new Date(selectedDate);
+                  d.setDate(d.getDate() - 1);
+                  setSelectedDate(d.toISOString().split('T')[0]);
+                }}
+                className="p-2 text-gray-400 hover:text-white hover:bg-gray-800 rounded-xl transition-all"
+                title="اليوم السابق"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor" className="w-5 h-5">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 4.5L21 12m0 0l-7.5 7.5M21 12H3" />
+                </svg>
+              </button>
+              
+              <div className="w-40 sm:w-48">
+                <DateInput 
+                  value={selectedDate} 
+                  onChange={setSelectedDate} 
+                  inputClassName="p-2 bg-transparent border-none text-center" 
+                />
+              </div>
+
+              <button 
+                onClick={() => {
+                  const d = new Date(selectedDate);
+                  d.setDate(d.getDate() + 1);
+                  setSelectedDate(d.toISOString().split('T')[0]);
+                }}
+                className="p-2 text-gray-400 hover:text-white hover:bg-gray-800 rounded-xl transition-all"
+                title="اليوم التالي"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor" className="w-5 h-5 rotate-180">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 4.5L21 12m0 0l-7.5 7.5M21 12H3" />
+                </svg>
+              </button>
+            </div>
+          </div>
+        )}
         {viewType === 'monthly' && (<div className="flex flex-wrap items-center gap-6"><div className="flex items-center gap-3"><label className="text-gray-400 font-bold text-sm">الشهر:</label><select value={selectedMonth} onChange={e => setSelectedMonth(e.target.value)} className="p-3 bg-gray-900 border border-gray-700 rounded-xl text-white font-bold outline-none focus:border-amber-500 transition-all">{months.map(m => <option key={m.value} value={m.value}>{m.name}</option>)}</select></div><div className="flex items-center gap-3"><label className="text-gray-400 font-bold text-sm">السنة:</label><select value={selectedYear} onChange={e => setSelectedYear(e.target.value)} className="p-3 bg-gray-900 border border-gray-700 rounded-xl text-white font-bold outline-none focus:border-amber-500 transition-all">{years.map(y => <option key={y} value={y}>{y}</option>)}</select></div></div>)}
         {viewType === 'yearly' && (<div className="flex items-center gap-3"><label className="text-gray-400 font-bold text-sm">السنة:</label><select value={selectedYear} onChange={e => setSelectedYear(e.target.value)} className="p-3 bg-gray-900 border border-gray-700 rounded-xl text-white font-bold outline-none focus:border-amber-500 transition-all">{years.map(y => <option key={y} value={y}>{y}</option>)}</select></div>)}
         <button onClick={() => window.print()} className="mr-auto px-6 py-3 bg-gray-700 text-gray-200 font-bold rounded-xl hover:bg-gray-600 transition-all flex items-center gap-2 border border-gray-600"><PrintIcon className="w-5 h-5" />طباعة السجل</button>

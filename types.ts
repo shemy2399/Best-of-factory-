@@ -1,7 +1,7 @@
 
 // types.ts
 
-export type Page = 'dashboard' | 'horses' | 'clinic' | 'vaccinations' | 'pharmacy' | 'feeding' | 'reports' | 'reminders' | 'protocols' | 'breeding' | 'nursing' | 'breedingReminders' | 'admins';
+export type Page = 'dashboard' | 'horses' | 'clinic' | 'vaccinations' | 'pharmacy' | 'feeding' | 'reports' | 'reminders' | 'protocols' | 'breeding' | 'nursing' | 'breedingReminders' | 'admins' | 'dataArchiving';
 
 export interface ProtectedPageAccess {
   pageId: Page;
@@ -104,6 +104,33 @@ export interface AppNotification {
   type: 'horse' | 'clinic' | 'pharmacy' | 'vaccination' | 'system';
   createdAt: string;
   createdBy: string;
+}
+
+// سجلات الإنتاج المؤرشفة
+export interface BirthRecord {
+  id: string;
+  mareId: string;
+  mareName: string;
+  foalId: string;
+  foalName: string;
+  birthDate: string;
+  conceptionDate?: string;
+  battalion: string;
+  notes?: string;
+  createdAt: string;
+}
+
+export interface WeaningRecord {
+  id: string;
+  mareId: string;
+  mareName: string;
+  foalId: string;
+  foalName: string;
+  weaningDate: string;
+  lactationStartDate: string;
+  battalion: string;
+  notes?: string;
+  createdAt: string;
 }
 
 // أرشيف الإحصائيات الشهرية

@@ -3,7 +3,7 @@ import { collection, onSnapshot, addDoc, doc, updateDoc, deleteDoc, query, order
 import { db } from './services/firebase'; 
 import Sidebar from './components/Sidebar';
 import TopBar from './components/TopBar';
-import { Page, Horse, Medication, MedicalRecordEntry, FeedingScheduleEntry, TreatmentProtocol, Vaccination, AppNotification, MonthlyArchive, AdminUser } from './types';
+import { Page, Horse, Medication, MedicalRecordEntry, FeedingScheduleEntry, TreatmentProtocol, Vaccination, AppNotification, MonthlyArchive, AdminUser, BirthRecord, WeaningRecord } from './types';
 import { NAV_ITEMS } from './constants';
 import Dashboard from './pages/Dashboard';
 import HorsesPage from './pages/Horses';
@@ -19,6 +19,7 @@ import BreedingPage from './pages/Breeding';
 import NursingPage from './pages/Nursing';
 import BreedingReminders from './pages/BreedingReminders';
 import AdminManagement from './pages/AdminManagement';
+import DataArchivingPage from './pages/DataArchiving';
 import { KeyIcon } from './components/icons';
 
 
@@ -171,6 +172,8 @@ const AppContent: React.FC = () => {
   const [protocols, setProtocols] = useState<TreatmentProtocol[]>([]);
   const [notifications, setNotifications] = useState<AppNotification[]>([]);
   const [monthlyArchives, setMonthlyArchives] = useState<MonthlyArchive[]>([]);
+  const [birthRecords, setBirthRecords] = useState<BirthRecord[]>([]);
+  const [weaningRecords, setWeaningRecords] = useState<WeaningRecord[]>([]);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
 
   const [isInitialLoading, setIsInitialLoading] = useState(true);
@@ -196,6 +199,8 @@ const AppContent: React.FC = () => {
     const unsubClinic = onSnapshot(query(collection(db, "clinicLog"), orderBy("date", "desc")), (s) => setClinicLog(s.docs.map(d => ({id: d.id, ...d.data()}) as any)), (err) => console.error("Clinic Error:", err));
     const unsubNotifications = onSnapshot(query(collection(db, "notifications"), orderBy("createdAt", "desc")), (s) => setNotifications(s.docs.map(d => ({id: d.id, ...d.data()}) as any)), (err) => console.error("Notifications Error:", err));
     const unsubArchives = onSnapshot(query(collection(db, "monthlyArchives"), orderBy("createdAt", "desc")), (s) => setMonthlyArchives(s.docs.map(d => ({id: d.id, ...d.data()}) as any)), (err) => console.error("Archives Error:", err));
+    const unsubBirths = onSnapshot(query(collection(db, "birthRecords"), orderBy("createdAt", "desc")), (s) => setBirthRecords(s.docs.map(d => ({id: d.id, ...d.data()}) as any)), (err) => console.error("Births Error:", err));
+    const unsubWeaning = onSnapshot(query(collection(db, "weaningRecords"), orderBy("createdAt", "desc")), (s) => setWeaningRecords(s.docs.map(d => ({id: d.id, ...d.data()}) as any)), (err) => console.error("Weaning Error:", err));
     const unsubMeds = onSnapshot(query(collection(db, "medications"), orderBy("createdAt", "desc")), (s) => setMedications(s.docs.map(d => ({id: d.id, ...d.data()}) as any)), (err) => console.error("Meds Error:", err));
     const unsubVacc = onSnapshot(query(collection(db, "vaccinations"), orderBy("date", "desc")), (s) => setVaccinations(s.docs.map(d => ({id: d.id, ...d.data()}) as any)), (err) => console.error("Vacc Error:", err));
     const unsubFeeding = onSnapshot(query(collection(db, "feedingSchedules")), (s) => setFeedingSchedules(s.docs.map(d => ({id: d.id, ...d.data()}) as any)), (err) => console.error("Feeding Error:", err));
@@ -204,7 +209,7 @@ const AppContent: React.FC = () => {
     const handleFullScreenChange = () => setIsFullScreen(!!document.fullscreenElement);
     document.addEventListener('fullscreenchange', handleFullScreenChange);
     return () => {
-        unsubAdmins(); unsubHorses(); unsubClinic(); unsubNotifications(); unsubArchives(); unsubMeds(); unsubVacc(); unsubFeeding(); unsubProtocols();
+        unsubAdmins(); unsubHorses(); unsubClinic(); unsubNotifications(); unsubArchives(); unsubBirths(); unsubWeaning(); unsubMeds(); unsubVacc(); unsubFeeding(); unsubProtocols();
         document.removeEventListener('fullscreenchange', handleFullScreenChange);
     };
   }, [isAuthenticated]);
@@ -473,9 +478,41 @@ const AppContent: React.FC = () => {
               case 'reports': 
                 return <ReportsPage clinicLog={clinicLog} horses={horses} medications={medications} globalBattalionFilter={globalBattalionFilter} monthlyArchives={monthlyArchives} onAddArchive={async (a) => { await addDoc(collection(db, "monthlyArchives"), a); }} onDeleteArchive={async (id) => deleteDoc(doc(db, "monthlyArchives", id))} onUpdateArchive={async (id, data) => updateDoc(doc(db, "monthlyArchives", id), data)} onNavigateWithFilter={(filter) => { setHorseSearchFilter(filter); handleNavigate('horses'); }} onNavigate={handleNavigate} />;
               case 'breeding': 
-                return <BreedingPage horses={horses} onRecordBirth={async (id) => updateDoc(doc(db, "horses", id), { pregnancy: deleteField() })} globalBattalionFilter={globalBattalionFilter} />;
+                return <BreedingPage horses={horses} onRecordBirth={async (id) => {
+                  const m = horses.find(h => h.id === id);
+                  if (m && m.pregnancy) {
+                    await addDoc(collection(db, "birthRecords"), {
+                      mareId: m.id,
+                      mareName: m.name,
+                      foalId: '', // Future foal entry
+                      foalName: 'مهر جديد من ' + m.name,
+                      birthDate: new Date().toISOString().split('T')[0],
+                      conceptionDate: m.pregnancy.conceptionDate,
+                      battalion: m.battalion,
+                      createdAt: serverTimestamp()
+                    });
+                  }
+                  await updateDoc(doc(db, "horses", id), { pregnancy: deleteField() });
+                  alert('تم تسجيل الولادة وحفظها في الأرشيف بنجاح');
+                }} globalBattalionFilter={globalBattalionFilter} />;
               case 'nursing': 
-                return <NursingPage horses={horses} onRecordWeaning={async (id) => updateDoc(doc(db, "horses", id), { lactation: deleteField() })} globalBattalionFilter={globalBattalionFilter} />;
+                return <NursingPage horses={horses} onRecordWeaning={async (id) => {
+                  const m = horses.find(h => h.id === id);
+                  if (m && m.lactation) {
+                    await addDoc(collection(db, "weaningRecords"), {
+                      mareId: m.id,
+                      mareName: m.name,
+                      foalId: m.lactation.foalId,
+                      foalName: m.lactation.foalName,
+                      weaningDate: new Date().toISOString().split('T')[0],
+                      lactationStartDate: m.lactation.startDate,
+                      battalion: m.battalion,
+                      createdAt: serverTimestamp()
+                    });
+                  }
+                  await updateDoc(doc(db, "horses", id), { lactation: deleteField() });
+                  alert('تم تسجيل الفطام وحفظه في الأرشيف بنجاح');
+                }} globalBattalionFilter={globalBattalionFilter} />;
               case 'breedingReminders':
                 return <BreedingReminders 
                     horses={horses} 
@@ -483,6 +520,16 @@ const AppContent: React.FC = () => {
                     onToggleMated={async (id, isMated) => {
                         await updateDoc(doc(db, "horses", id), { isMated });
                     }}
+                />;
+              case 'dataArchiving':
+                return <DataArchivingPage 
+                  birthRecords={birthRecords} 
+                  weaningRecords={weaningRecords} 
+                  horses={horses}
+                  clinicLog={clinicLog}
+                  onDeleteBirth={async (id) => deleteDoc(doc(db, "birthRecords", id))}
+                  onDeleteWeaning={async (id) => deleteDoc(doc(db, "weaningRecords", id))}
+                  globalBattalionFilter={globalBattalionFilter} 
                 />;
               case 'admins': 
                 return <AdminManagement 

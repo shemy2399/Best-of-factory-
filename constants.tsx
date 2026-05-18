@@ -83,6 +83,11 @@ export const NAV_STRUCTURE: (NavItem | NavItemGroup)[] = [
         label: 'التشبيه',
         icon: <BreedingIcon />,
       },
+      {
+        id: 'dataArchiving',
+        label: 'حفظ البيانات',
+        icon: <ManagementIcon />,
+      },
     ]
   },
   {
