@@ -484,6 +484,7 @@ const AppContent: React.FC = () => {
                     await addDoc(collection(db, "birthRecords"), {
                       mareId: m.id,
                       mareName: m.name,
+                      mareNumber: m.number,
                       foalId: '', // Future foal entry
                       foalName: 'مهر جديد من ' + m.name,
                       birthDate: new Date().toISOString().split('T')[0],
@@ -502,6 +503,7 @@ const AppContent: React.FC = () => {
                     await addDoc(collection(db, "weaningRecords"), {
                       mareId: m.id,
                       mareName: m.name,
+                      mareNumber: m.number,
                       foalId: m.lactation.foalId,
                       foalName: m.lactation.foalName,
                       weaningDate: new Date().toISOString().split('T')[0],

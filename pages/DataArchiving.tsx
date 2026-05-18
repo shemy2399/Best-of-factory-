@@ -32,16 +32,28 @@ const DataArchivingPage: React.FC<DataArchivingPageProps> = ({
   const filteredBirths = useMemo(() => {
     return birthRecords
       .filter(r => globalBattalionFilter === 'الكل' || r.battalion === globalBattalionFilter)
-      .filter(r => r.mareName.includes(searchTerm) || r.foalName.includes(searchTerm))
+      .filter(r => {
+        const h = horses.find(h => h.id === r.mareId);
+        const mNumber = r.mareNumber || h?.number || '';
+        return r.mareName.includes(searchTerm) || 
+               r.foalName.includes(searchTerm) || 
+               mNumber.includes(searchTerm);
+      })
       .sort((a, b) => b.birthDate.localeCompare(a.birthDate));
-  }, [birthRecords, globalBattalionFilter, searchTerm]);
+  }, [birthRecords, globalBattalionFilter, searchTerm, horses]);
 
   const filteredWeaning = useMemo(() => {
     return weaningRecords
       .filter(r => globalBattalionFilter === 'الكل' || r.battalion === globalBattalionFilter)
-      .filter(r => r.mareName.includes(searchTerm) || r.foalName.includes(searchTerm))
+      .filter(r => {
+        const h = horses.find(h => h.id === r.mareId);
+        const mNumber = r.mareNumber || h?.number || '';
+        return r.mareName.includes(searchTerm) || 
+               r.foalName.includes(searchTerm) || 
+               mNumber.includes(searchTerm);
+      })
       .sort((a, b) => b.weaningDate.localeCompare(a.weaningDate));
-  }, [weaningRecords, globalBattalionFilter, searchTerm]);
+  }, [weaningRecords, globalBattalionFilter, searchTerm, horses]);
 
   const stats = useMemo(() => ({
     totalBirths: filteredBirths.length,
@@ -78,6 +90,7 @@ const DataArchivingPage: React.FC<DataArchivingPageProps> = ({
             await addDoc(collection(db, "birthRecords"), {
               mareId: mare?.id || '',
               mareName: horse.motherName,
+              mareNumber: mare?.number || '',
               foalId: horse.id,
               foalName: horse.name,
               birthDate: horse.dateOfBirth,
@@ -107,6 +120,7 @@ const DataArchivingPage: React.FC<DataArchivingPageProps> = ({
             await addDoc(collection(db, "birthRecords"), {
               mareId: entry.horseId || '',
               mareName: horseName,
+              mareNumber: horseDetails?.number || '',
               foalId: '',
               foalName: 'غير محدد (مسترجع من العيادة)',
               birthDate: entry.date,
@@ -127,6 +141,7 @@ const DataArchivingPage: React.FC<DataArchivingPageProps> = ({
             await addDoc(collection(db, "weaningRecords"), {
               mareId: entry.horseId || '',
               mareName: horseName,
+              mareNumber: horseDetails?.number || '',
               foalId: '',
               foalName: 'غير محدد (مسترجع من العيادة)',
               weaningDate: entry.date,
@@ -255,27 +270,36 @@ const DataArchivingPage: React.FC<DataArchivingPageProps> = ({
                     <td colSpan={6} className="px-8 py-20 text-center text-gray-500">لا يوجد سجلات ولادة حالياً</td>
                   </tr>
                 ) : (
-                  filteredBirths.map(rec => (
-                    <tr key={rec.id} className="hover:bg-gray-700/30 transition-colors">
-                      <td className="px-8 py-4 text-white font-black">{rec.mareName}</td>
-                      <td className="px-8 py-4 text-amber-500 font-black">{rec.foalName}</td>
-                      <td className="px-8 py-4 text-gray-300">{rec.birthDate}</td>
-                      <td className="px-8 py-4 text-gray-400">{rec.battalion}</td>
-                      <td className="px-8 py-4 text-gray-500 italic max-w-xs truncate">{rec.notes || '-'}</td>
-                      <td className="px-8 py-4">
-                        <div className="flex justify-center">
-                          <button 
-                            onClick={() => {
-                              if(window.confirm('هل أنت متأكد من حذف هذا السجل؟')) onDeleteBirth(rec.id);
-                            }}
-                            className="p-2 text-gray-500 hover:text-red-500 transition-colors"
-                          >
-                            <TrashIcon className="w-5 h-5" />
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  ))
+                  filteredBirths.map(rec => {
+                    const horse = horses.find(h => h.id === rec.mareId);
+                    const displayNum = rec.mareNumber || horse?.number;
+                    return (
+                      <tr key={rec.id} className="hover:bg-gray-700/30 transition-colors">
+                        <td className="px-8 py-4">
+                          <div className="flex flex-col">
+                            <span className="text-white font-black">{rec.mareName}</span>
+                            {displayNum && <span className="text-gray-500 text-xs font-bold">رقم: {displayNum}</span>}
+                          </div>
+                        </td>
+                        <td className="px-8 py-4 text-amber-500 font-black">{rec.foalName}</td>
+                        <td className="px-8 py-4 text-gray-300">{rec.birthDate}</td>
+                        <td className="px-8 py-4 text-gray-400">{rec.battalion}</td>
+                        <td className="px-8 py-4 text-gray-500 italic max-w-xs truncate">{rec.notes || '-'}</td>
+                        <td className="px-8 py-4">
+                          <div className="flex justify-center">
+                            <button 
+                              onClick={() => {
+                                if(window.confirm('هل أنت متأكد من حذف هذا السجل؟')) onDeleteBirth(rec.id);
+                              }}
+                              className="p-2 text-gray-500 hover:text-red-500 transition-colors"
+                            >
+                              <TrashIcon className="w-5 h-5" />
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })
                 )}
               </tbody>
             </table>
@@ -299,27 +323,36 @@ const DataArchivingPage: React.FC<DataArchivingPageProps> = ({
                     <td colSpan={6} className="px-8 py-20 text-center text-gray-500">لا يوجد سجلات فطام حالياً</td>
                   </tr>
                 ) : (
-                  filteredWeaning.map(rec => (
-                    <tr key={rec.id} className="hover:bg-gray-700/30 transition-colors">
-                      <td className="px-8 py-4 text-white font-black">{rec.mareName}</td>
-                      <td className="px-8 py-4 text-blue-400 font-black">{rec.foalName}</td>
-                      <td className="px-8 py-4 text-gray-300">{rec.weaningDate}</td>
-                      <td className="px-8 py-4 text-gray-400">{rec.battalion}</td>
-                      <td className="px-8 py-4 text-gray-500 italic max-w-xs truncate">{rec.notes || '-'}</td>
-                      <td className="px-8 py-4">
-                        <div className="flex justify-center">
-                          <button 
-                            onClick={() => {
-                              if(window.confirm('هل أنت متأكد من حذف هذا السجل؟')) onDeleteWeaning(rec.id);
-                            }}
-                            className="p-2 text-gray-500 hover:text-red-500 transition-colors"
-                          >
-                            <TrashIcon className="w-5 h-5" />
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  ))
+                  filteredWeaning.map(rec => {
+                    const horse = horses.find(h => h.id === rec.mareId);
+                    const displayNum = rec.mareNumber || horse?.number;
+                    return (
+                      <tr key={rec.id} className="hover:bg-gray-700/30 transition-colors">
+                        <td className="px-8 py-4">
+                          <div className="flex flex-col">
+                            <span className="text-white font-black">{rec.mareName}</span>
+                            {displayNum && <span className="text-gray-500 text-xs font-bold">رقم: {displayNum}</span>}
+                          </div>
+                        </td>
+                        <td className="px-8 py-4 text-blue-400 font-black">{rec.foalName}</td>
+                        <td className="px-8 py-4 text-gray-300">{rec.weaningDate}</td>
+                        <td className="px-8 py-4 text-gray-400">{rec.battalion}</td>
+                        <td className="px-8 py-4 text-gray-500 italic max-w-xs truncate">{rec.notes || '-'}</td>
+                        <td className="px-8 py-4">
+                          <div className="flex justify-center">
+                            <button 
+                              onClick={() => {
+                                if(window.confirm('هل أنت متأكد من حذف هذا السجل؟')) onDeleteWeaning(rec.id);
+                              }}
+                              className="p-2 text-gray-500 hover:text-red-500 transition-colors"
+                            >
+                              <TrashIcon className="w-5 h-5" />
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })
                 )}
               </tbody>
             </table>

@@ -111,6 +111,7 @@ export interface BirthRecord {
   id: string;
   mareId: string;
   mareName: string;
+  mareNumber?: string;
   foalId: string;
   foalName: string;
   birthDate: string;
@@ -124,6 +125,7 @@ export interface WeaningRecord {
   id: string;
   mareId: string;
   mareName: string;
+  mareNumber?: string;
   foalId: string;
   foalName: string;
   weaningDate: string;
