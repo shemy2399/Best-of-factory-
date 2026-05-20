@@ -371,11 +371,13 @@ const AppContent: React.FC = () => {
       handleCreateNotification(`حذف الحصان ${horse?.name || '---'} من القوة`, 'horse');
   }, [horses, handleCreateNotification]);
 
+  const activeHorses = useMemo(() => horses.filter(h => !h.isArchived), [horses]);
+
   const activePageLabel = useMemo(() => NAV_ITEMS.find(item => item.id === activePage)?.label || 'لوحة التحكم', [activePage]);
 
   const breedingRemindersCount = useMemo(() => {
     const today = new Date();
-    return horses.filter(h => {
+    return activeHorses.filter(h => {
         if (!h.dateOfBirth) return false;
         // Battalion filter check (following same logic as globalBattalionFilter in pages)
         if (globalBattalionFilter !== 'الكل' && h.battalion !== globalBattalionFilter) return false;
@@ -388,7 +390,7 @@ const AppContent: React.FC = () => {
         }
         return years >= 3 && !h.isMated;
     }).length;
-  }, [horses, globalBattalionFilter]);
+  }, [activeHorses, globalBattalionFilter]);
 
   if (isInitialLoading && !isAuthenticated) return <div className="h-screen bg-gray-900 flex items-center justify-center text-white font-black animate-pulse">جاري التحميل...</div>;
   if (!isAuthenticated) return <LoginPage onLoginSuccess={handleLoginSuccess} admins={admins} />;
@@ -407,12 +409,33 @@ const AppContent: React.FC = () => {
           {(() => {
             switch(activePage) {
               case 'dashboard': 
-                return <Dashboard horses={horses} medications={medications} clinicLog={clinicLog} globalBattalionFilter={globalBattalionFilter} setActivePage={handleNavigate} />;
+                return <Dashboard horses={activeHorses} medications={medications} clinicLog={clinicLog} globalBattalionFilter={globalBattalionFilter} setActivePage={handleNavigate} />;
               case 'horses': 
-                return <HorsesPage horses={horses} vaccinations={vaccinations} clinicLog={clinicLog} onAddHorse={handleAddHorse} onEditHorse={handleEditHorse} onDeleteHorse={handleDeleteHorse} globalBattalionFilter={globalBattalionFilter} initialSearchTerm={horseSearchFilter} currentUser={currentUser} />;
+                return <HorsesPage 
+                  horses={activeHorses} 
+                  vaccinations={vaccinations} 
+                  clinicLog={clinicLog} 
+                  onAddHorse={handleAddHorse} 
+                  onEditHorse={handleEditHorse} 
+                  onDeleteHorse={handleDeleteHorse} 
+                  onArchiveHorse={async (id, reason, notes, date) => {
+                    await updateDoc(doc(db, "horses", id), {
+                      isArchived: true,
+                      archivedAt: date,
+                      archiveReason: reason,
+                      archiveNotes: notes
+                    });
+                    const h = horses.find(h => h.id === id);
+                    handleCreateNotification(`استبعاد الخيل وأرشفته: ${h?.name || ''}`, 'horse');
+                    alert('تم استبعاد الحصان ونقله للأرشيف بنجاح');
+                  }}
+                  globalBattalionFilter={globalBattalionFilter} 
+                  initialSearchTerm={horseSearchFilter} 
+                  currentUser={currentUser} 
+                />;
               case 'clinic': 
                 return <ClinicPage 
-                    horses={horses} medications={medications} clinicLog={clinicLog} protocols={protocols} 
+                    horses={activeHorses} medications={medications} clinicLog={clinicLog} protocols={protocols} 
                     onAddEntry={async (entry, hId, hName, hNum, addHist) => { 
                         try {
                             await addDoc(collection(db, "clinicLog"), { ...entry, horseName: hName, horseNumber: hNum, horseId: hId, createdAt: serverTimestamp(), isPermanent: addHist }); 
@@ -449,7 +472,7 @@ const AppContent: React.FC = () => {
                 return <PharmacyPage medications={medications} onAddMedication={async (m) => addDoc(collection(db, "medications"), {...m, createdAt: new Date().toISOString()})} onEditMedication={async (m) => { const {id, ...data} = m; updateDoc(doc(db, "medications", id), data); }} onDeleteMedication={async (id) => deleteDoc(doc(db, "medications", id))} globalBattalionFilter={globalBattalionFilter} setGlobalBattalionFilter={setGlobalBattalionFilter} />;
               case 'vaccinations': 
                 return <VaccinationsPage 
-                    horses={horses} 
+                    horses={activeHorses} 
                     vaccinations={vaccinations} 
                     onAddVaccination={async (v) => {
                         const data: any = { ...v, createdAt: new Date().toISOString() };
@@ -472,21 +495,21 @@ const AppContent: React.FC = () => {
               case 'feeding': 
                 return <FeedingPage feedingSchedules={feedingSchedules} onAddFeedingSchedule={async (s) => addDoc(collection(db, "feedingSchedules"), s)} onEditFeedingSchedule={async (s) => { const {id, ...data} = s; updateDoc(doc(db, "feedingSchedules", id), data); }} onDeleteFeedingSchedule={async (id) => deleteDoc(doc(db, "feedingSchedules", id))} globalBattalionFilter={globalBattalionFilter} setGlobalBattalionFilter={setGlobalBattalionFilter} />;
               case 'reminders': 
-                return <RemindersPage clinicLog={clinicLog} horses={horses} vaccinations={vaccinations} globalBattalionFilter={globalBattalionFilter} onCompleteReminder={async (r) => { if(r.type === 'clinic') { await updateDoc(doc(db, "clinicLog", r.id), { followUpDate: deleteField() }); } else { await updateDoc(doc(db, "vaccinations", r.id), { nextDueDate: deleteField() }); } handleCreateNotification(`تم تنفيذ: ${r.details}`, 'system'); }} />;
+                return <RemindersPage clinicLog={clinicLog} horses={activeHorses} vaccinations={vaccinations} globalBattalionFilter={globalBattalionFilter} onCompleteReminder={async (r) => { if(r.type === 'clinic') { await updateDoc(doc(db, "clinicLog", r.id), { followUpDate: deleteField() }); } else { await updateDoc(doc(db, "vaccinations", r.id), { nextDueDate: deleteField() }); } handleCreateNotification(`تم تنفيذ: ${r.details}`, 'system'); }} />;
               case 'protocols': 
                 return <ProtocolsPage protocols={protocols} onAddProtocol={async (p) => addDoc(collection(db, "protocols"), p)} onEditProtocol={async (p) => { const {id, ...data} = p; updateDoc(doc(db, "protocols", id), data); }} onDeleteProtocol={async (id) => deleteDoc(doc(db, "protocols", id))} />;
               case 'reports': 
-                return <ReportsPage clinicLog={clinicLog} horses={horses} medications={medications} globalBattalionFilter={globalBattalionFilter} monthlyArchives={monthlyArchives} onAddArchive={async (a) => { await addDoc(collection(db, "monthlyArchives"), a); }} onDeleteArchive={async (id) => deleteDoc(doc(db, "monthlyArchives", id))} onUpdateArchive={async (id, data) => updateDoc(doc(db, "monthlyArchives", id), data)} onNavigateWithFilter={(filter) => { setHorseSearchFilter(filter); handleNavigate('horses'); }} onNavigate={handleNavigate} />;
+                return <ReportsPage clinicLog={clinicLog} horses={activeHorses} medications={medications} globalBattalionFilter={globalBattalionFilter} monthlyArchives={monthlyArchives} onAddArchive={async (a) => { await addDoc(collection(db, "monthlyArchives"), a); }} onDeleteArchive={async (id) => deleteDoc(doc(db, "monthlyArchives", id))} onUpdateArchive={async (id, data) => updateDoc(doc(db, "monthlyArchives", id), data)} onNavigateWithFilter={(filter) => { setHorseSearchFilter(filter); handleNavigate('horses'); }} onNavigate={handleNavigate} />;
               case 'breeding': 
-                return <BreedingPage horses={horses} onRecordBirth={async (id) => {
-                  const m = horses.find(h => h.id === id);
+                return <BreedingPage horses={activeHorses} onRecordBirth={async (id, foalName) => {
+                  const m = activeHorses.find(h => h.id === id);
                   if (m && m.pregnancy) {
                     await addDoc(collection(db, "birthRecords"), {
                       mareId: m.id,
                       mareName: m.name,
                       mareNumber: m.number,
                       foalId: '', // Future foal entry
-                      foalName: 'مهر جديد من ' + m.name,
+                      foalName: foalName || ('مهر جديد من ' + m.name),
                       birthDate: new Date().toISOString().split('T')[0],
                       conceptionDate: m.pregnancy.conceptionDate,
                       battalion: m.battalion,
@@ -497,8 +520,8 @@ const AppContent: React.FC = () => {
                   alert('تم تسجيل الولادة وحفظها في الأرشيف بنجاح');
                 }} globalBattalionFilter={globalBattalionFilter} />;
               case 'nursing': 
-                return <NursingPage horses={horses} onRecordWeaning={async (id) => {
-                  const m = horses.find(h => h.id === id);
+                return <NursingPage horses={activeHorses} onRecordWeaning={async (id) => {
+                  const m = activeHorses.find(h => h.id === id);
                   if (m && m.lactation) {
                     await addDoc(collection(db, "weaningRecords"), {
                       mareId: m.id,
@@ -517,7 +540,7 @@ const AppContent: React.FC = () => {
                 }} globalBattalionFilter={globalBattalionFilter} />;
               case 'breedingReminders':
                 return <BreedingReminders 
-                    horses={horses} 
+                    horses={activeHorses} 
                     globalBattalionFilter={globalBattalionFilter} 
                     onToggleMated={async (id, isMated) => {
                         await updateDoc(doc(db, "horses", id), { isMated });
@@ -531,6 +554,21 @@ const AppContent: React.FC = () => {
                   clinicLog={clinicLog}
                   onDeleteBirth={async (id) => deleteDoc(doc(db, "birthRecords", id))}
                   onDeleteWeaning={async (id) => deleteDoc(doc(db, "weaningRecords", id))}
+                  onUnarchiveHorse={async (id) => {
+                    await updateDoc(doc(db, "horses", id), {
+                      isArchived: deleteField(),
+                      archivedAt: deleteField(),
+                      archiveReason: deleteField(),
+                      archiveNotes: deleteField()
+                    });
+                    const h = horses.find(h => h.id === id);
+                    handleCreateNotification(`إعادة الحصان لقوة الكتايب النشطة: ${h?.name || ''}`, 'horse');
+                    alert('تمت إعادة الحصان إلى قوة الكتايب النشطة بنجاح');
+                  }}
+                  onDeleteArchivedHorse={async (id) => {
+                    await deleteDoc(doc(db, "horses", id));
+                    handleCreateNotification(`حذف نهائي للحصان من قوة الكتايب`, 'horse');
+                  }}
                   globalBattalionFilter={globalBattalionFilter} 
                 />;
               case 'admins': 

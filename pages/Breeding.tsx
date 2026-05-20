@@ -4,40 +4,63 @@ import { BreedingIcon, CheckIcon } from '../components/icons';
 
 interface BreedingPageProps {
   horses: Horse[];
-  onRecordBirth: (horseId: string) => void;
+  onRecordBirth: (horseId: string, foalName: string) => void;
   globalBattalionFilter: Horse['battalion'] | 'الكل';
 }
 
 const ConfirmBirthModal: React.FC<{
   horse: Horse;
   onClose: () => void;
-  onConfirm: (horseId: string) => void;
+  onConfirm: (horseId: string, foalName: string) => void;
 }> = ({ horse, onClose, onConfirm }) => {
+    const [foalName, setFoalName] = useState('مهر ' + horse.name);
+
+    const handleSubmit = (e: React.FormEvent) => {
+        e.preventDefault();
+        if (!foalName.trim()) {
+            alert('يرجى إدخال اسم المهر المسجل أولاً');
+            return;
+        }
+        onConfirm(horse.id, foalName.trim());
+    };
+
     return (
-        <div className="fixed inset-0 bg-black bg-opacity-75 flex justify-center items-center z-50">
-            <div className="bg-gray-800 rounded-xl shadow-2xl p-8 w-full max-w-md text-center border border-gray-700">
-                <h3 className="text-xl font-bold text-gray-100 mt-5">تسجيل الولادة</h3>
-                <p className="text-gray-400 mt-2">
-                    هل أنت متأكد من تسجيل ولادة الفرس <span className="font-bold text-gray-200">{horse.name}</span>؟
-                    <br/>
-                    سيتم إزالتها من قائمة الأفراس العشار.
+        <div className="fixed inset-0 bg-black/80 flex justify-center items-center z-50 p-4">
+            <div className="bg-gray-800 rounded-xl shadow-2xl p-6 w-full max-w-md border border-gray-700">
+                <h3 className="text-xl font-bold text-gray-100 text-center mb-4">تسجيل الولادة</h3>
+                <p className="text-gray-400 text-sm mb-6 text-center leading-relaxed">
+                    سيتم تسجيل ولادة الفرس <span className="font-bold text-gray-200">{horse.name}</span> وإزالتها من شاشة الأفراس العشار لتنتقل للأرشيف. من فضلك اكتب الاسم المعتمد للمهر:
                 </p>
-                <div className="mt-8 flex justify-center gap-4">
-                     <button
-                        type="button"
-                        onClick={() => onConfirm(horse.id)}
-                        className="px-8 py-2 bg-green-600 text-white font-semibold rounded-lg hover:bg-green-700 transition-colors"
-                    >
-                        نعم، تأكيد الولادة
-                    </button>
-                    <button
-                        type="button"
-                        onClick={onClose}
-                        className="px-8 py-2 bg-gray-600 text-gray-100 font-semibold rounded-lg hover:bg-gray-500 transition-colors"
-                    >
-                        إلغاء
-                    </button>
-                </div>
+                
+                <form onSubmit={handleSubmit} className="space-y-4 text-right">
+                    <div>
+                        <label className="block text-gray-300 font-bold mb-2 text-sm">اسم المهر المولود:</label>
+                        <input
+                            type="text"
+                            required
+                            placeholder="اكتب اسم المهر"
+                            value={foalName}
+                            onChange={(e) => setFoalName(e.target.value)}
+                            className="w-full bg-gray-900 border border-gray-700 rounded-xl px-4 py-3 text-white font-bold outline-none focus:border-green-500 transition-all text-right"
+                        />
+                    </div>
+                    
+                    <div className="mt-8 flex justify-center gap-4">
+                         <button
+                            type="submit"
+                            className="px-8 py-2.5 bg-green-600 text-white font-semibold rounded-lg hover:bg-green-700 transition-colors"
+                        >
+                            تأكيد الولادة
+                        </button>
+                        <button
+                            type="button"
+                            onClick={onClose}
+                            className="px-8 py-2.5 bg-gray-600 text-gray-100 font-semibold rounded-lg hover:bg-gray-500 transition-colors"
+                        >
+                            إلغاء
+                        </button>
+                    </div>
+                </form>
             </div>
         </div>
     );
@@ -75,8 +98,8 @@ const BreedingPage: React.FC<BreedingPageProps> = ({ horses, onRecordBirth, glob
                 <ConfirmBirthModal 
                     horse={confirmingBirthHorse}
                     onClose={() => setConfirmingBirthHorse(null)}
-                    onConfirm={(horseId) => {
-                        onRecordBirth(horseId);
+                    onConfirm={(horseId, foalName) => {
+                        onRecordBirth(horseId, foalName);
                         setConfirmingBirthHorse(null);
                     }}
                 />

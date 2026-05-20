@@ -82,6 +82,10 @@ export interface Horse {
     notes?: string;
   };
   isMated?: boolean;
+  isArchived?: boolean;
+  archivedAt?: string;
+  archiveReason?: string;
+  archiveNotes?: string;
 }
 
 export interface FeedingScheduleEntry {

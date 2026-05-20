@@ -13,6 +13,7 @@ interface HorsesPageProps {
   onAddHorse: (horse: any) => void;
   onEditHorse: (horse: Horse) => void;
   onDeleteHorse: (horseId: string) => void;
+  onArchiveHorse?: (horseId: string, reason: string, notes: string, date: string) => void;
   globalBattalionFilter: Horse['battalion'] | 'الكل';
   initialSearchTerm?: string;
   currentUser?: AdminUser | null;
@@ -43,12 +44,13 @@ const StatusBadge = React.memo(({ status }: { status: string }) => {
 });
 
 // --- Row Component ---
-const HorseRow = React.memo(({ horse, effectiveStatus, onView, onEdit, onDelete }: { 
+const HorseRow = React.memo(({ horse, effectiveStatus, onView, onEdit, onDelete, onArchive }: { 
     horse: Horse, 
     effectiveStatus: string,
     onView: (h: Horse) => void, 
     onEdit: (h: Horse) => void, 
-    onDelete: (id: string) => void 
+    onDelete: (id: string) => void,
+    onArchive?: (h: Horse) => void
 }) => {
     const gender = horse.gender || '';
     const isFemale = gender.includes('انثى');
@@ -106,6 +108,13 @@ const HorseRow = React.memo(({ horse, effectiveStatus, onView, onEdit, onDelete 
                     <button onClick={() => onEdit(horse)} className="p-1.5 text-gray-400 hover:text-amber-400 hover:bg-amber-500/10 rounded transition-colors" title="تعديل">
                         <PencilIcon className="w-4 h-4"/>
                     </button>
+                    {onArchive && (
+                        <button onClick={() => onArchive(horse)} className="p-1.5 text-gray-400 hover:text-indigo-400 hover:bg-indigo-500/10 rounded transition-colors" title="استبعاد/أرشفة الخيل">
+                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor" className="w-4 h-4">
+                                <path strokeLinecap="round" strokeLinejoin="round" d="M12 9.75v6.75m0 0l-3-3m3 3l3-3m-8.25 6h10.5a2.25 2.25 0 002.25-2.25v-10.5A2.25 2.25 0 0017.25 3H6.75A2.25 2.25 0 004.5 5.25v10.5A2.25 2.25 0 006.75 18z" />
+                            </svg>
+                        </button>
+                    )}
                     <button onClick={() => onDelete(horse.id)} className="p-1.5 text-gray-400 hover:text-red-400 hover:bg-red-500/10 rounded transition-colors" title="حذف">
                         <TrashIcon className="w-4 h-4"/>
                     </button>
@@ -552,7 +561,7 @@ const HorseFormModal = ({ horse, onClose, onSave }: { horse?: Horse; onClose: ()
 };
 
 // --- Main Page ---
-const HorsesPage: React.FC<HorsesPageProps> = ({ horses, vaccinations, clinicLog, onAddHorse, onEditHorse, onDeleteHorse, globalBattalionFilter, initialSearchTerm, currentUser }) => {
+const HorsesPage: React.FC<HorsesPageProps> = ({ horses, vaccinations, clinicLog, onAddHorse, onEditHorse, onDeleteHorse, onArchiveHorse, globalBattalionFilter, initialSearchTerm, currentUser }) => {
   const [displaySearch, setDisplaySearch] = useState(initialSearchTerm || '');
   const [debouncedSearch, setDebouncedSearch] = useState(initialSearchTerm || '');
   const [yearFilter, setYearFilter] = useState<string>('الكل');
@@ -560,6 +569,7 @@ const HorsesPage: React.FC<HorsesPageProps> = ({ horses, vaccinations, clinicLog
   const [editingHorse, setEditingHorse] = useState<Horse | null>(null);
   const [viewingHorse, setViewingHorse] = useState<Horse | null>(null);
   const [deletingHorse, setDeletingHorse] = useState<Horse | null>(null);
+  const [archivingHorse, setArchivingHorse] = useState<Horse | null>(null);
   
   useEffect(() => { const handler = setTimeout(() => { setDebouncedSearch(displaySearch); }, 300); return () => clearTimeout(handler); }, [displaySearch]);
 
@@ -647,6 +657,7 @@ const HorsesPage: React.FC<HorsesPageProps> = ({ horses, vaccinations, clinicLog
   const handleEdit = useCallback((h: Horse) => setEditingHorse(h), []);
   const handleView = useCallback((h: Horse) => setViewingHorse(h), []);
   const handleDeleteClick = useCallback((h: Horse) => setDeletingHorse(h), []);
+  const handleArchiveClick = useCallback((h: Horse) => setArchivingHorse(h), []);
   const confirmDelete = () => { if (deletingHorse) { onDeleteHorse(deletingHorse.id); setDeletingHorse(null); } };
 
   return (
@@ -655,6 +666,18 @@ const HorsesPage: React.FC<HorsesPageProps> = ({ horses, vaccinations, clinicLog
       {editingHorse && <HorseFormModal horse={editingHorse} onClose={() => setEditingHorse(null)} onSave={onEditHorse} />}
       {viewingHorse && <HorseViewModal horse={viewingHorse} clinicLog={clinicLog} vaccinations={vaccinations} onClose={() => setViewingHorse(null)} />}
       {deletingHorse && <ConfirmDeleteHorseModal horse={deletingHorse} onClose={() => setDeletingHorse(null)} onConfirm={confirmDelete} />}
+      {archivingHorse && (
+        <ConfirmArchiveHorseModal 
+          horse={archivingHorse} 
+          onClose={() => setArchivingHorse(null)} 
+          onConfirm={(reason, notes, date) => {
+            if (onArchiveHorse) {
+              onArchiveHorse(archivingHorse.id, reason, notes, date);
+            }
+            setArchivingHorse(null);
+          }} 
+        />
+      )}
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
         <div>
           <h1 className="text-3xl font-black text-white flex items-center gap-3"><HorseIcon className="w-8 h-8 text-amber-500" />سجلات الخيول</h1>
@@ -702,11 +725,82 @@ const HorsesPage: React.FC<HorsesPageProps> = ({ horses, vaccinations, clinicLog
                         onView={handleView} 
                         onEdit={handleEdit} 
                         onDelete={() => handleDeleteClick(horse)} 
+                        onArchive={handleArchiveClick}
                     />
                 )) : (<tr><td colSpan={4} className="text-center py-10 text-gray-500">لا توجد نتائج مطابقة.</td></tr>)}
             </tbody>
             </table>
         </div>
+      </div>
+    </div>
+  );
+};
+
+// --- Confirm Archive Horse Modal ---
+const ConfirmArchiveHorseModal: React.FC<{
+  horse: Horse;
+  onClose: () => void;
+  onConfirm: (reason: string, notes: string, date: string) => void;
+}> = ({ horse, onClose, onConfirm }) => {
+  const [reason, setReason] = useState('استبعاد طبي');
+  const [notes, setNotes] = useState('');
+  const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    onConfirm(reason, notes, date);
+  };
+
+  return (
+    <div className="fixed inset-0 bg-black/80 flex justify-center items-center z-[80] p-4 backdrop-blur-sm">
+      <div className="bg-gray-800 rounded-2xl border border-gray-700 p-6 w-full max-w-md text-right shadow-2xl">
+        <h3 className="text-xl font-bold text-gray-100 text-center mb-4">أرشفة واستبعاد الخيل من القوة</h3>
+        <p className="text-gray-400 text-sm mb-6 text-center leading-relaxed">
+          هل أنت متأكد من رغبتك في استبعاد وأرشفة الحصان <span className="font-bold text-white">"{horse.name}"</span>؟
+          <br/>
+          سيتم إخراج الحصان من قوة الكتايب النشطة ونقله لشاشة الأرشيف.
+        </p>
+
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div>
+            <label className="block text-gray-300 font-bold mb-2 text-sm">سبب الاستبعاد:</label>
+            <select
+              value={reason}
+              onChange={(e) => setReason(e.target.value)}
+              className="w-full bg-gray-950 border border-gray-700 p-3 rounded-xl text-white font-bold outline-none focus:border-amber-500"
+            >
+              <option value="استبعاد طبي">استبعاد طبي (عدم لياقة)</option>
+              <option value="وفاة">وفاة (نافق)</option>
+              <option value="بيع / إهداء">بيع / إهداء</option>
+              <option value="انتهاء الخدمة">انتهاء الخدمة (تقاعد)</option>
+              <option value="أخرى / تحويل">أخرى / تحويل خارجي</option>
+            </select>
+          </div>
+
+          <div>
+            <label className="block text-gray-300 font-bold mb-2 text-sm">تاريخ الاستبعاد:</label>
+            <DateInput
+              required
+              value={date}
+              onChange={(val) => setDate(val)}
+            />
+          </div>
+
+          <div>
+            <label className="block text-gray-300 font-bold mb-2 text-sm">ملاحظات إضافية:</label>
+            <textarea
+              value={notes}
+              onChange={(e) => setNotes(e.target.value)}
+              placeholder="اكتب تفاصيل أو ملاحظات عن سبب خروج الحصان من الخدمة..."
+              className="w-full bg-gray-950 border border-gray-700 p-3 rounded-xl text-white outline-none focus:border-amber-500 h-24 font-bold text-sm resize-none"
+            />
+          </div>
+
+          <div className="flex gap-3 pt-4">
+            <button type="submit" className="flex-1 py-3 bg-indigo-600 text-white font-bold rounded-xl hover:bg-indigo-700 transition-all shadow-lg shadow-indigo-600/20">تأكيد الاستبعاد</button>
+            <button type="button" onClick={onClose} className="flex-1 py-3 bg-gray-700 text-gray-300 font-bold rounded-xl hover:bg-gray-600 transition-colors">إلغاء</button>
+          </div>
+        </form>
       </div>
     </div>
   );
