@@ -134,7 +134,20 @@ const BreedingReminders: React.FC<BreedingRemindersProps> = ({ horses, globalBat
       });
   }, [horses, globalBattalionFilter]);
 
-  const matedHorses = useMemo(() => allEligible.filter(h => h.isMated), [allEligible]);
+  const matedHorses = useMemo(() => {
+    return horses
+      .filter(h => h.isMated && !h.isArchived && (globalBattalionFilter === 'الكل' || h.battalion === globalBattalionFilter))
+      .map(h => ({
+        ...h,
+        ageDetails: h.dateOfBirth ? calculateAgeDetails(h.dateOfBirth) : { years: 0, months: 0, days: 0 }
+      }))
+      .sort((a, b) => {
+        if (a.ageDetails.years !== b.ageDetails.years) return b.ageDetails.years - a.ageDetails.years;
+        if (a.ageDetails.months !== b.ageDetails.months) return b.ageDetails.months - a.ageDetails.months;
+        return b.ageDetails.days - a.ageDetails.days;
+      });
+  }, [horses, globalBattalionFilter]);
+
   const notMatedHorses = useMemo(() => allEligible.filter(h => !h.isMated), [allEligible]);
 
   const monthlyGroups = useMemo(() => {
