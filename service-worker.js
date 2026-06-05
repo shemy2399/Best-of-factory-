@@ -1,5 +1,5 @@
 
-const CACHE_NAME = 'khayala-app-v5';
+const CACHE_NAME = 'khayala-app-v6';
 const urlsToCache = [
   '/',
   '/index.html',
