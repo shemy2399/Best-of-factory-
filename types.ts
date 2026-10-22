@@ -1,7 +1,7 @@
 
 // types.ts
 
-export type Page = 'dashboard' | 'horses' | 'clinic' | 'vaccinations' | 'pharmacy' | 'feeding' | 'reports' | 'reminders' | 'protocols' | 'breeding' | 'nursing' | 'breedingReminders' | 'admins' | 'dataArchiving';
+export type Page = 'dashboard' | 'horses' | 'pedigree' | 'clinic' | 'vaccinations' | 'pharmacy' | 'feeding' | 'reports' | 'reminders' | 'protocols' | 'breeding' | 'nursing' | 'breedingReminders' | 'admins' | 'dataArchiving';
 
 export interface ProtectedPageAccess {
   pageId: Page;

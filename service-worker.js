@@ -1,5 +1,4 @@
-
-const CACHE_NAME = 'khayala-app-v6';
+const CACHE_NAME = 'khayala-app-v7';
 const urlsToCache = [
   '/',
   '/index.html',
@@ -7,17 +6,10 @@ const urlsToCache = [
 ];
 
 self.addEventListener('install', (event) => {
+  self.skipWaiting();
   event.waitUntil(
     caches.open(CACHE_NAME)
       .then((cache) => cache.addAll(urlsToCache))
-  );
-});
-
-self.addEventListener('fetch', (event) => {
-  event.respondWith(
-    caches.match(event.request)
-      .then((response) => response || fetch(event.request))
-      .catch(() => caches.match('/index.html')) // في حالة الفشل وجهه للصفحة الرئيسية
   );
 });
 
@@ -31,6 +23,22 @@ self.addEventListener('activate', (event) => {
           }
         })
       );
-    })
+    }).then(() => self.clients.claim())
+  );
+});
+
+self.addEventListener('fetch', (event) => {
+  // Network first for HTML, cache fallback for offline
+  if (event.request.mode === 'navigate') {
+    event.respondWith(
+      fetch(event.request).catch(() => caches.match('/index.html'))
+    );
+    return;
+  }
+
+  event.respondWith(
+    caches.match(event.request)
+      .then((response) => response || fetch(event.request))
+      .catch(() => caches.match('/index.html'))
   );
 });

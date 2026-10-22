@@ -20,6 +20,7 @@ import NursingPage from './pages/Nursing';
 import BreedingReminders from './pages/BreedingReminders';
 import AdminManagement from './pages/AdminManagement';
 import DataArchivingPage from './pages/DataArchiving';
+import PedigreePage from './pages/Pedigree';
 import { KeyIcon } from './components/icons';
 
 
@@ -162,6 +163,7 @@ const AppContent: React.FC = () => {
   }, [admins, currentUser, globalBattalionFilter]);
   
   const [horseSearchFilter, setHorseSearchFilter] = useState('');
+  const [selectedPedigreeHorseId, setSelectedPedigreeHorseId] = useState<string>('');
   const [isFullScreen, setIsFullScreen] = useState(!!document.fullscreenElement);
 
   const [horses, setHorses] = useState<Horse[]>([]);
@@ -432,7 +434,20 @@ const AppContent: React.FC = () => {
                   globalBattalionFilter={globalBattalionFilter} 
                   initialSearchTerm={horseSearchFilter} 
                   currentUser={currentUser} 
+                  onViewPedigree={(hId: string) => {
+                    setSelectedPedigreeHorseId(hId);
+                    handleNavigate('pedigree');
+                  }}
                 />;
+              case 'pedigree':
+                return (
+                  <PedigreePage 
+                    horses={activeHorses}
+                    globalBattalionFilter={globalBattalionFilter}
+                    setGlobalBattalionFilter={setGlobalBattalionFilter}
+                    initialHorseId={selectedPedigreeHorseId}
+                  />
+                );
               case 'clinic': 
                 return <ClinicPage 
                     horses={activeHorses} medications={medications} clinicLog={clinicLog} protocols={protocols} 

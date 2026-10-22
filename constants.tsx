@@ -1,7 +1,7 @@
 
 import React from 'react';
 import { Page } from './types';
-import { DashboardIcon, HorseIcon, ClinicIcon, VaccinationIcon, RemindersIcon, PharmacyIcon, ProtocolsIcon, ReportsIcon, FeedingIcon, MedicalRecordsIcon, ManagementIcon, BreedingIcon, UsersIcon } from './components/icons';
+import { DashboardIcon, HorseIcon, ClinicIcon, VaccinationIcon, RemindersIcon, PharmacyIcon, ProtocolsIcon, ReportsIcon, FeedingIcon, MedicalRecordsIcon, ManagementIcon, BreedingIcon, UsersIcon, CertificateIcon } from './components/icons';
 
 // Simple fallback for Nursing Icon since we are not changing icons.tsx
 const NursingIcon = () => (
@@ -32,6 +32,11 @@ export const NAV_STRUCTURE: (NavItem | NavItemGroup)[] = [
     id: 'horses',
     label: 'سجلات الخيول',
     icon: <HorseIcon />,
+  },
+  {
+    id: 'pedigree',
+    label: 'شهادات الأنساب والمخططات',
+    icon: <CertificateIcon />,
   },
   {
     title: 'السجلات الطبية',
